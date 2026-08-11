@@ -4,7 +4,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.io as pio
 from plotly.subplots import make_subplots
-from IPython.display import display, HTML, clear_output
 import ipywidgets as widgets
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
