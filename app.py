@@ -7,37 +7,64 @@ from plotly.subplots import make_subplots
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix
+)
 from sklearn.preprocessing import LabelEncoder
 
 
 # ============================================================
-# STREAMLIT PAGE SETUP
+# PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
-    page_title="Strategic Customer Segmentation Analytics",
+    page_title="Strategic Customer Analytics",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
+
+
+# ============================================================
+# COLORS
+# ============================================================
 
 GOLD = "#FFD700"
 NAVY = "#191970"
-SLATE = "#2f4f4f"
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CSV_PATH = os.path.join(BASE_DIR, "SEGMENTATION.csv")
 
 
 # ============================================================
-# LOAD / GENERATE DATA
+# FILE PATH
 # ============================================================
 
-def generate_sample_data(path=CSV_PATH, n=500, seed=42):
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
+
+CSV_PATH = os.path.join(
+    BASE_DIR,
+    "SEGMENTATION.csv"
+)
+
+
+# ============================================================
+# SAMPLE DATA GENERATOR
+# ============================================================
+
+def generate_sample_data(
+    path=CSV_PATH,
+    n=500,
+    seed=42
+):
 
     rng = np.random.default_rng(seed)
 
-    genders = ["Male", "Female"]
+    genders = [
+        "Male",
+        "Female"
+    ]
 
     factors = [
         "Price",
@@ -54,7 +81,11 @@ def generate_sample_data(path=CSV_PATH, n=500, seed=42):
         "Platinum"
     ]
 
-    age = rng.integers(18, 70, n)
+    age = rng.integers(
+        18,
+        70,
+        n
+    )
 
     gender = rng.choice(
         genders,
@@ -64,23 +95,39 @@ def generate_sample_data(path=CSV_PATH, n=500, seed=42):
     satisfaction_factor = rng.choice(
         factors,
         n,
-        p=[0.25, 0.25, 0.20, 0.15, 0.15]
+        p=[
+            0.25,
+            0.25,
+            0.20,
+            0.15,
+            0.15
+        ]
     )
 
     loyalty_level = rng.choice(
         loyalty_levels,
         n,
-        p=[0.35, 0.30, 0.25, 0.10]
+        p=[
+            0.35,
+            0.30,
+            0.25,
+            0.10
+        ]
     )
 
     loyalty_spend_base = {
+
         "Bronze": 300,
+
         "Silver": 900,
+
         "Gold": 2200,
+
         "Platinum": 5000
     }
 
     annual_spend = np.array([
+
         max(
             20,
             rng.normal(
@@ -88,37 +135,59 @@ def generate_sample_data(path=CSV_PATH, n=500, seed=42):
                 loyalty_spend_base[level] * 0.30
             )
         )
+
         for level in loyalty_level
+
     ]).round(2)
 
     visit_frequency = np.clip(
-        (annual_spend / 300) + rng.normal(0, 2, n),
+
+        (annual_spend / 300)
+        + rng.normal(0, 2, n),
+
         0.5,
+
         None
+
     ).round(1)
 
     satisfaction_score = np.clip(
-        rng.normal(5.5, 2.0, n)
+
+        rng.normal(
+            5.5,
+            2.0,
+            n
+        )
         + (annual_spend / 2000),
+
         1,
+
         10
+
     ).round(1)
 
-    def assign_group(spend, score):
+    def assign_group(
+        spend,
+        score
+    ):
 
         if score < 4:
+
             return "At Risk"
 
         elif spend > 1500 and score >= 6:
+
             return "Settled"
 
         return "Attention Required"
 
     group = [
+
         assign_group(
             spend,
             score
         )
+
         for spend, score
         in zip(
             annual_spend,
@@ -133,9 +202,11 @@ def generate_sample_data(path=CSV_PATH, n=500, seed=42):
             for i in range(n)
         ],
 
-        "Age": age,
+        "Age":
+            age,
 
-        "Gender": gender,
+        "Gender":
+            gender,
 
         "Satisfaction_Factor":
             satisfaction_factor,
@@ -164,44 +235,64 @@ def generate_sample_data(path=CSV_PATH, n=500, seed=42):
     return data
 
 
-# Always generate project dataset
+# ============================================================
+# LOAD DATA
+# ============================================================
+
 df = generate_sample_data()
 
 
 # ============================================================
-# VALIDATION
+# VALIDATE DATA
 # ============================================================
 
 REQUIRED_COLS = {
+
     "Customer_ID",
+
     "Group",
+
     "Satisfaction_Factor",
+
     "Satisfaction_Score",
+
     "Age",
+
     "Loyalty_Level",
+
     "Gender"
 }
 
-missing = REQUIRED_COLS - set(df.columns)
+missing = (
+    REQUIRED_COLS
+    - set(df.columns)
+)
 
 if missing:
 
     st.error(
-        f"Your CSV is missing required column(s): {missing}"
+        f"Missing required columns: {missing}"
     )
 
     st.stop()
 
 
 # ============================================================
-# MACHINE LEARNING MODEL
+# MACHINE LEARNING
 # ============================================================
 
 df_encoded = df.copy()
 
-categorical_cols = df_encoded.select_dtypes(
-    include=["object"]
-).columns.tolist()
+
+categorical_cols = (
+    df_encoded
+    .select_dtypes(
+        include=["object"]
+    )
+    .columns
+    .tolist()
+)
+
 
 for col in [
     "Customer_ID",
@@ -209,24 +300,35 @@ for col in [
 ]:
 
     if col in categorical_cols:
-        categorical_cols.remove(col)
+
+        categorical_cols.remove(
+            col
+        )
 
 
 df_encoded = pd.get_dummies(
+
     df_encoded,
+
     columns=categorical_cols,
+
     drop_first=True
 )
 
 
-le = LabelEncoder()
+label_encoder = LabelEncoder()
 
-df_encoded["Group_encoded"] = le.fit_transform(
-    df_encoded["Group"]
+
+df_encoded["Group_encoded"] = (
+    label_encoder
+    .fit_transform(
+        df_encoded["Group"]
+    )
 )
 
 
 X = df_encoded.drop(
+
     columns=[
         "Customer_ID",
         "Group",
@@ -234,22 +336,33 @@ X = df_encoded.drop(
     ]
 )
 
-y = df_encoded["Group_encoded"]
+
+y = df_encoded[
+    "Group_encoded"
+]
 
 
 X_train, X_test, y_train, y_test = train_test_split(
+
     X,
+
     y,
+
     test_size=0.20,
+
     random_state=42,
+
     stratify=y
 )
 
 
 model = RandomForestClassifier(
+
     n_estimators=200,
+
     random_state=42
 )
+
 
 model.fit(
     X_train,
@@ -269,13 +382,22 @@ accuracy = accuracy_score(
 
 
 report_df = pd.DataFrame(
+
     classification_report(
+
         y_test,
+
         y_pred,
-        target_names=le.classes_,
+
+        target_names=
+        label_encoder.classes_,
+
         output_dict=True,
+
         zero_division=0
+
     )
+
 ).transpose().round(3)
 
 
@@ -286,34 +408,34 @@ cm = confusion_matrix(
 
 
 # ============================================================
-# LIQUID GLASS UI
+# LIQUID GLASS CSS
 # ============================================================
 
 st.markdown(
     """
     <style>
 
-    /* ========================================================
+    /* ======================================================
        GLOBAL APP
-       ======================================================== */
+       ====================================================== */
 
     .stApp {
 
         background:
             radial-gradient(
-                circle at 10% 10%,
-                rgba(255,215,0,0.10),
+                circle at 8% 8%,
+                rgba(255,215,0,0.12),
+                transparent 28%
+            ),
+
+            radial-gradient(
+                circle at 92% 15%,
+                rgba(80,120,255,0.14),
                 transparent 30%
             ),
 
             radial-gradient(
-                circle at 90% 20%,
-                rgba(80,120,255,0.12),
-                transparent 30%
-            ),
-
-            radial-gradient(
-                circle at 50% 90%,
+                circle at 50% 95%,
                 rgba(0,180,255,0.08),
                 transparent 35%
             ),
@@ -321,106 +443,141 @@ st.markdown(
             linear-gradient(
                 135deg,
                 #030303 0%,
-                #080d1b 45%,
+                #090d19 48%,
                 #030303 100%
             );
 
-        background-attachment: fixed;
+        background-attachment:
+            fixed;
     }
 
 
-    /* ========================================================
-       REMOVE STREAMLIT DEFAULT BACKGROUNDS
-       ======================================================== */
+    /* ======================================================
+       STREAMLIT BACKGROUND
+       ====================================================== */
 
     [data-testid="stAppViewContainer"] {
 
-        background: transparent !important;
+        background:
+            transparent !important;
     }
+
 
     [data-testid="stHeader"] {
 
-        background: transparent !important;
+        background:
+            transparent !important;
     }
+
 
     [data-testid="stToolbar"] {
 
-        background: transparent !important;
+        background:
+            transparent !important;
     }
 
-    [data-testid="stSidebar"] {
-
-        background: transparent !important;
-    }
 
     .main {
 
-        background: transparent !important;
+        background:
+            transparent !important;
     }
 
-
-    /* ========================================================
-       MAIN CONTAINER
-       ======================================================== */
 
     .main .block-container {
 
-        padding-top: 2rem;
-        padding-bottom: 3rem;
+        max-width:
+            1500px;
 
-        max-width: 1500px;
+        padding-top:
+            1.5rem;
+
+        padding-bottom:
+            3rem;
+
+        padding-left:
+            3rem;
+
+        padding-right:
+            3rem;
     }
 
 
-    /* ========================================================
-       HEADER
-       ======================================================== */
+    /* ======================================================
+       MAIN TITLE
+       ====================================================== */
 
-    .main-title {
+    .app-title {
 
-        text-align: center;
+        text-align:
+            center;
 
-        color: #ffffff;
+        font-size:
+            clamp(2rem, 5vw, 4.2rem);
 
-        padding: 30px 25px;
+        font-weight:
+            800;
 
-        border-radius: 24px;
+        letter-spacing:
+            3px;
+
+        line-height:
+            1.05;
+
+        color:
+            #ffffff;
+
+        padding:
+            30px 20px;
+
+        border-radius:
+            28px;
 
         background:
             linear-gradient(
                 135deg,
-                rgba(255,255,255,0.12),
+                rgba(255,255,255,0.13),
                 rgba(255,255,255,0.035)
             );
 
         border:
-            1px solid rgba(255,255,255,0.20);
+            1px solid
+            rgba(255,255,255,0.20);
 
         box-shadow:
-            0 8px 32px rgba(0,0,0,0.45),
-            inset 0 1px 1px rgba(255,255,255,0.25),
-            0 0 30px rgba(255,215,0,0.08);
+            0 15px 45px
+            rgba(0,0,0,0.40),
 
-        backdrop-filter: blur(25px);
-        -webkit-backdrop-filter: blur(25px);
+            inset 0 1px 1px
+            rgba(255,255,255,0.25),
 
-        letter-spacing: 2px;
+            0 0 35px
+            rgba(255,215,0,0.08);
 
-        margin-bottom: 25px;
+        backdrop-filter:
+            blur(25px);
+
+        -webkit-backdrop-filter:
+            blur(25px);
+
+        margin-bottom:
+            28px;
     }
 
 
-    .main-title::after {
+    .title-line {
 
-        content: "";
+        width:
+            120px;
 
-        display: block;
+        height:
+            3px;
 
-        width: 120px;
+        margin:
+            18px auto 0;
 
-        height: 2px;
-
-        margin: 15px auto 0;
+        border-radius:
+            50%;
 
         background:
             linear-gradient(
@@ -431,285 +588,199 @@ st.markdown(
             );
 
         box-shadow:
-            0 0 12px rgba(255,215,0,0.7);
+            0 0 15px
+            rgba(255,215,0,0.8);
     }
 
 
-    /* ========================================================
-       SUMMARY
-       ======================================================== */
+    /* ======================================================
+       SECTION TITLES
+       ====================================================== */
 
-    .summary {
+    .section-title {
 
-        text-align: center;
+        font-size:
+            1.45rem;
 
-        padding: 22px;
-
-        border-radius: 22px;
-
-        background:
-            linear-gradient(
-                135deg,
-                rgba(255,255,255,0.11),
-                rgba(255,255,255,0.035)
-            );
-
-        border:
-            1px solid rgba(255,255,255,0.18);
-
-        box-shadow:
-            0 10px 35px rgba(0,0,0,0.35),
-            inset 0 1px 1px rgba(255,255,255,0.18);
-
-        backdrop-filter: blur(25px);
-        -webkit-backdrop-filter: blur(25px);
-
-        margin: 20px 0;
-    }
-
-
-    .summary h2 {
-
-        color: #FFD700;
-
-        font-size: 1.35rem;
-
-        margin-bottom: 10px;
-
-        text-shadow:
-            0 0 15px rgba(255,215,0,0.35);
-    }
-
-
-    .summary p {
+        font-weight:
+            700;
 
         color:
-            rgba(255,255,255,0.90);
+            #ffffff;
 
-        font-size: 1.15rem;
+        margin-top:
+            28px;
 
-        margin: 0;
+        margin-bottom:
+            14px;
+
+        padding-left:
+            14px;
+
+        border-left:
+            3px solid #FFD700;
     }
 
 
-    /* ========================================================
-       METRICS
-       ======================================================== */
+    .section-caption {
+
+        color:
+            rgba(255,255,255,0.45);
+
+        font-size:
+            0.75rem;
+
+        font-weight:
+            700;
+
+        letter-spacing:
+            2px;
+
+        margin-bottom:
+            14px;
+    }
+
+
+    /* ======================================================
+       STREAMLIT METRIC CARDS
+       ====================================================== */
 
     [data-testid="stMetric"] {
 
+        min-height:
+            155px;
+
+        padding:
+            22px !important;
+
+        border-radius:
+            24px;
+
         background:
             linear-gradient(
-                135deg,
-                rgba(255,255,255,0.10),
-                rgba(255,255,255,0.025)
+                145deg,
+                rgba(255,255,255,0.12),
+                rgba(255,255,255,0.035)
             ) !important;
 
         border:
-            1px solid rgba(255,255,255,0.16);
-
-        border-radius: 20px;
-
-        padding: 20px;
+            1px solid
+            rgba(255,255,255,0.16);
 
         box-shadow:
-            0 8px 30px rgba(0,0,0,0.35),
-            inset 0 1px 1px rgba(255,255,255,0.18);
+            0 15px 40px
+            rgba(0,0,0,0.35),
 
-        backdrop-filter: blur(22px);
-        -webkit-backdrop-filter: blur(22px);
-    }
+            inset 0 1px 1px
+            rgba(255,255,255,0.18);
 
+        backdrop-filter:
+            blur(25px);
 
-    [data-testid="stMetricLabel"] {
-
-        color:
-            rgba(255,255,255,0.65) !important;
-    }
-
-
-    [data-testid="stMetricValue"] {
-
-        color: #ffffff !important;
-    }
-
-
-    /* ========================================================
-       SELECT BOX
-       ======================================================== */
-
-    div[data-baseweb="select"] > div {
-
-        background:
-            rgba(255,255,255,0.07) !important;
-
-        border:
-            1px solid rgba(255,255,255,0.18) !important;
-
-        border-radius: 16px !important;
-
-        backdrop-filter: blur(20px);
-
-        -webkit-backdrop-filter: blur(20px);
-
-        box-shadow:
-            inset 0 1px 1px rgba(255,255,255,0.15),
-            0 5px 20px rgba(0,0,0,0.25);
-
-        color: white !important;
-    }
-
-
-    div[data-baseweb="select"] span {
-
-        color: white !important;
-    }
-
-
-    div[data-baseweb="popover"] {
-
-        background:
-            rgba(10,15,28,0.92) !important;
-
-        border:
-            1px solid rgba(255,255,255,0.18) !important;
-
-        border-radius: 16px !important;
-
-        backdrop-filter: blur(25px);
-
-        -webkit-backdrop-filter: blur(25px);
-
-        box-shadow:
-            0 20px 50px rgba(0,0,0,0.55);
-    }
-
-
-    /* ========================================================
-       BUTTON
-       ======================================================== */
-
-    .stButton > button {
-
-        width: 100%;
-
-        padding: 12px 20px;
-
-        border-radius: 16px;
-
-        border:
-            1px solid rgba(255,255,255,0.20);
-
-        background:
-            linear-gradient(
-                135deg,
-                rgba(255,255,255,0.14),
-                rgba(255,255,255,0.045)
-            );
-
-        color: white;
-
-        font-weight: 600;
-
-        letter-spacing: 0.5px;
-
-        backdrop-filter: blur(20px);
-
-        -webkit-backdrop-filter: blur(20px);
-
-        box-shadow:
-            0 8px 25px rgba(0,0,0,0.30),
-            inset 0 1px 1px rgba(255,255,255,0.20);
+        -webkit-backdrop-filter:
+            blur(25px);
 
         transition:
             all 0.25s ease;
     }
 
 
-    .stButton > button:hover {
-
-        border-color:
-            rgba(255,215,0,0.75);
-
-        color: #FFD700;
+    [data-testid="stMetric"]:hover {
 
         transform:
-            translateY(-2px);
+            translateY(-5px);
+
+        border-color:
+            rgba(255,215,0,0.40);
 
         box-shadow:
-            0 10px 30px rgba(0,0,0,0.40),
-            0 0 25px rgba(255,215,0,0.15);
+            0 20px 45px
+            rgba(0,0,0,0.45),
+
+            0 0 25px
+            rgba(255,215,0,0.08);
     }
 
 
-    /* ========================================================
-       HEADINGS
-       ======================================================== */
+    [data-testid="stMetricLabel"] {
 
-    h2,
-    h3 {
+        color:
+            rgba(255,255,255,0.52) !important;
+
+        font-size:
+            0.75rem !important;
+
+        font-weight:
+            700 !important;
+
+        letter-spacing:
+            1.5px !important;
+    }
+
+
+    [data-testid="stMetricValue"] {
 
         color:
             #ffffff !important;
 
-        letter-spacing:
-            0.5px;
+        font-size:
+            2.2rem !important;
+
+        font-weight:
+            750 !important;
     }
 
 
-    h2 {
+    [data-testid="stMetricDelta"] {
 
-        border-left:
-            3px solid #FFD700;
-
-        padding-left:
-            12px;
+        color:
+            rgba(255,215,0,0.75) !important;
     }
 
 
-    /* ========================================================
-       PLOTLY GLASS CONTAINER
-       ======================================================== */
+    /* ======================================================
+       PLOTLY GLASS CARDS
+       ====================================================== */
 
     div[data-testid="stPlotlyChart"] {
 
         background:
             linear-gradient(
-                135deg,
+                145deg,
                 rgba(255,255,255,0.075),
                 rgba(255,255,255,0.025)
             ) !important;
 
         border:
-            1px solid rgba(255,255,255,0.14);
+            1px solid
+            rgba(255,255,255,0.14);
 
         border-radius:
-            22px;
+            24px;
 
         padding:
             8px;
 
         box-shadow:
-            0 10px 35px rgba(0,0,0,0.35),
-            inset 0 1px 1px rgba(255,255,255,0.12);
+            0 12px 38px
+            rgba(0,0,0,0.35),
+
+            inset 0 1px 1px
+            rgba(255,255,255,0.12);
 
         backdrop-filter:
-            blur(18px);
+            blur(20px);
 
         -webkit-backdrop-filter:
-            blur(18px);
-
-        margin-bottom:
-            18px;
+            blur(20px);
 
         overflow:
             hidden;
+
+        margin-bottom:
+            18px;
     }
 
-
-    /* ========================================================
-       FORCE PLOTLY IFRAME TRANSPARENCY
-       ======================================================== */
 
     div[data-testid="stPlotlyChart"] iframe {
 
@@ -718,9 +789,144 @@ st.markdown(
     }
 
 
-    /* ========================================================
+    /* ======================================================
+       SELECT BOX
+       ====================================================== */
+
+    div[data-baseweb="select"] > div {
+
+        background:
+            rgba(255,255,255,0.07)
+            !important;
+
+        border:
+            1px solid
+            rgba(255,255,255,0.18)
+            !important;
+
+        border-radius:
+            16px !important;
+
+        color:
+            white !important;
+
+        backdrop-filter:
+            blur(20px);
+
+        -webkit-backdrop-filter:
+            blur(20px);
+
+        box-shadow:
+            inset 0 1px 1px
+            rgba(255,255,255,0.15),
+
+            0 5px 20px
+            rgba(0,0,0,0.25);
+    }
+
+
+    div[data-baseweb="select"] span {
+
+        color:
+            #ffffff !important;
+    }
+
+
+    div[data-baseweb="popover"] {
+
+        background:
+            rgba(10,15,28,0.95)
+            !important;
+
+        border:
+            1px solid
+            rgba(255,255,255,0.18)
+            !important;
+
+        border-radius:
+            16px !important;
+
+        backdrop-filter:
+            blur(25px);
+    }
+
+
+    /* ======================================================
+       BUTTON
+       ====================================================== */
+
+    .stButton > button {
+
+        width:
+            100%;
+
+        min-height:
+            48px;
+
+        border-radius:
+            16px;
+
+        border:
+            1px solid
+            rgba(255,255,255,0.20);
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(255,255,255,0.14),
+                rgba(255,255,255,0.045)
+            );
+
+        color:
+            #ffffff;
+
+        font-weight:
+            700;
+
+        letter-spacing:
+            0.5px;
+
+        backdrop-filter:
+            blur(20px);
+
+        -webkit-backdrop-filter:
+            blur(20px);
+
+        box-shadow:
+            0 8px 25px
+            rgba(0,0,0,0.30),
+
+            inset 0 1px 1px
+            rgba(255,255,255,0.20);
+
+        transition:
+            all 0.25s ease;
+    }
+
+
+    .stButton > button:hover {
+
+        color:
+            #FFD700;
+
+        border-color:
+            rgba(255,215,0,0.65);
+
+        transform:
+            translateY(-2px);
+
+        box-shadow:
+            0 10px 30px
+            rgba(0,0,0,0.40),
+
+            0 0 25px
+            rgba(255,215,0,0.12);
+    }
+
+
+    /* ======================================================
        DATAFRAME
-       ======================================================== */
+       ====================================================== */
 
     div[data-testid="stDataFrame"] {
 
@@ -731,162 +937,96 @@ st.markdown(
             hidden;
 
         border:
-            1px solid rgba(255,255,255,0.15);
+            1px solid
+            rgba(255,255,255,0.15);
 
         box-shadow:
-            0 10px 35px rgba(0,0,0,0.35);
-
-        backdrop-filter:
-            blur(20px);
-
-        -webkit-backdrop-filter:
-            blur(20px);
+            0 10px 35px
+            rgba(0,0,0,0.35);
     }
 
 
-    /* ========================================================
-       PREDICTION CARD
-       ======================================================== */
+    /* ======================================================
+       PREDICTION RESULT
+       ====================================================== */
 
-    .prediction-box {
+    .prediction-card {
+
+        text-align:
+            center;
+
+        padding:
+            25px;
+
+        border-radius:
+            24px;
 
         background:
             linear-gradient(
-                135deg,
-                rgba(255,215,0,0.12),
+                145deg,
+                rgba(255,215,0,0.13),
                 rgba(255,255,255,0.035)
             );
 
-        padding:
-            22px;
-
-        border-radius:
-            22px;
-
         border:
-            1px solid rgba(255,215,0,0.35);
-
-        margin-top:
-            18px;
+            1px solid
+            rgba(255,215,0,0.35);
 
         box-shadow:
-            0 10px 35px rgba(0,0,0,0.40),
-            0 0 25px rgba(255,215,0,0.08),
-            inset 0 1px 1px rgba(255,255,255,0.18);
+            0 15px 40px
+            rgba(0,0,0,0.40),
+
+            0 0 30px
+            rgba(255,215,0,0.08),
+
+            inset 0 1px 1px
+            rgba(255,255,255,0.18);
 
         backdrop-filter:
             blur(25px);
 
         -webkit-backdrop-filter:
             blur(25px);
-
-        text-align:
-            center;
-    }
-
-
-    .prediction-box h3 {
-
-        color:
-            #FFD700 !important;
-
-        font-size:
-            1.35rem;
-
-        text-shadow:
-            0 0 15px rgba(255,215,0,0.35);
-    }
-
-
-    .prediction-box p {
-
-        color:
-            rgba(255,255,255,0.85);
-
-        font-size:
-            1.05rem;
-    }
-
-
-    /* ========================================================
-       DIVIDER
-       ======================================================== */
-
-    hr {
-
-        border:
-            none;
-
-        height:
-            1px;
-
-        background:
-            linear-gradient(
-                90deg,
-                transparent,
-                rgba(255,215,0,0.5),
-                transparent
-            );
 
         margin:
-            35px 0;
+            18px 0;
     }
 
 
-    /* ========================================================
+    /* ======================================================
        FOOTER
-       ======================================================== */
+       ====================================================== */
 
-    .footer {
+    .footer-text {
 
         text-align:
             center;
 
-        background:
-            linear-gradient(
-                135deg,
-                rgba(255,255,255,0.08),
-                rgba(255,255,255,0.025)
-            );
-
         color:
-            #FFD700;
+            rgba(255,215,0,0.75);
+
+        font-size:
+            0.8rem;
+
+        letter-spacing:
+            1.5px;
 
         padding:
             20px;
-
-        border-radius:
-            20px;
-
-        border:
-            1px solid rgba(255,255,255,0.15);
-
-        box-shadow:
-            0 10px 30px rgba(0,0,0,0.35),
-            inset 0 1px 1px rgba(255,255,255,0.15);
-
-        backdrop-filter:
-            blur(20px);
-
-        -webkit-backdrop-filter:
-            blur(20px);
 
         margin-top:
             30px;
-
-        letter-spacing:
-            1px;
     }
 
 
-    /* ========================================================
+    /* ======================================================
        SCROLLBAR
-       ======================================================== */
+       ====================================================== */
 
     ::-webkit-scrollbar {
 
         width:
-            8px;
+            7px;
     }
 
 
@@ -914,42 +1054,77 @@ st.markdown(
     }
 
 
-    /* ========================================================
-       AMBIENT GLASS LIGHT
-       ======================================================== */
+    /* ======================================================
+       MOBILE RESPONSIVE
+       ====================================================== */
 
-    .stApp::before {
+    @media (max-width: 768px) {
 
-        content:
-            "";
+        .main .block-container {
 
-        position:
-            fixed;
+            padding-left:
+                0.8rem;
 
-        top:
-            -200px;
+            padding-right:
+                0.8rem;
 
-        left:
-            -200px;
+            padding-top:
+                0.8rem;
+        }
 
-        width:
-            500px;
 
-        height:
-            500px;
+        .app-title {
 
-        background:
-            radial-gradient(
-                circle,
-                rgba(255,215,0,0.07),
-                transparent 65%
-            );
+            font-size:
+                2rem;
 
-        pointer-events:
-            none;
+            letter-spacing:
+                1.5px;
 
-        z-index:
-            0;
+            padding:
+                28px 14px;
+
+            border-radius:
+                22px;
+        }
+
+
+        .section-title {
+
+            font-size:
+                1.2rem;
+        }
+
+
+        [data-testid="stMetric"] {
+
+            min-height:
+                135px;
+
+            padding:
+                17px !important;
+
+            border-radius:
+                20px;
+        }
+
+
+        [data-testid="stMetricValue"] {
+
+            font-size:
+                1.7rem !important;
+        }
+
+
+        div[data-testid="stPlotlyChart"] {
+
+            border-radius:
+                20px;
+
+            padding:
+                3px;
+        }
+
     }
 
     </style>
@@ -959,107 +1134,18 @@ st.markdown(
 
 
 # ============================================================
-# PLOTLY LIQUID GLASS THEME
-# ============================================================
-
-def glass_plot(fig):
-
-    fig.update_layout(
-
-        paper_bgcolor="rgba(0,0,0,0)",
-
-        plot_bgcolor="rgba(0,0,0,0)",
-
-        font=dict(
-            color="rgba(255,255,255,0.88)"
-        ),
-
-        title=dict(
-            font=dict(
-                color="#FFFFFF",
-                size=18
-            )
-        ),
-
-        legend=dict(
-            font=dict(
-                color="rgba(255,255,255,0.80)"
-            ),
-
-            bgcolor="rgba(0,0,0,0)"
-        ),
-
-        margin=dict(
-            l=45,
-            r=30,
-            t=60,
-            b=45
-        ),
-
-        xaxis=dict(
-
-            color="rgba(255,255,255,0.75)",
-
-            gridcolor="rgba(255,255,255,0.07)",
-
-            zerolinecolor="rgba(255,255,255,0.10)"
-        ),
-
-        yaxis=dict(
-
-            color="rgba(255,255,255,0.75)",
-
-            gridcolor="rgba(255,255,255,0.07)",
-
-            zerolinecolor="rgba(255,255,255,0.10)"
-        )
-    )
-
-    return fig
-
-
-# ============================================================
-# HEADER
+# APP HEADER
 # ============================================================
 
 st.markdown(
     """
-    <h1 class="main-title">
-        STRATEGIC CUSTOMER SEGMENTATION ANALYTICS
-    </h1>
-    """,
-    unsafe_allow_html=True
-)
+    <div class="app-title">
 
+        STRATEGIC CUSTOMER
+        <br>
+        SEGMENTATION ANALYTICS
 
-# ============================================================
-# SUMMARY
-# ============================================================
-
-st.markdown(
-    f"""
-    <div class="summary">
-
-        <h2>
-            Customer Movement Prediction Summary
-        </h2>
-
-        <p>
-
-            <b>Total Customers:</b>
-            {len(df):,}
-
-            &nbsp; | &nbsp;
-
-            <b>Segments:</b>
-            {df["Group"].nunique()}
-
-            &nbsp; | &nbsp;
-
-            <b>Model Accuracy:</b>
-            {accuracy:.2%}
-
-        </p>
+        <div class="title-line"></div>
 
     </div>
     """,
@@ -1068,25 +1154,83 @@ st.markdown(
 
 
 # ============================================================
-# MAIN DASHBOARD — 6 CHARTS
+# CUSTOMER INSIGHTS
+# ============================================================
+
+st.markdown(
+    """
+    <div class="section-caption">
+        CUSTOMER INSIGHTS
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+metric1, metric2, metric3 = st.columns(
+    3,
+    gap="medium"
+)
+
+
+with metric1:
+
+    st.metric(
+        label="👥  TOTAL CUSTOMERS",
+        value=f"{len(df):,}"
+    )
+
+
+with metric2:
+
+    st.metric(
+        label="◈  CUSTOMER SEGMENTS",
+        value=df["Group"].nunique()
+    )
+
+
+with metric3:
+
+    st.metric(
+        label="⚡  MODEL ACCURACY",
+        value=f"{accuracy:.2%}"
+    )
+
+
+# ============================================================
+# PORTFOLIO ANALYSIS TITLE
+# ============================================================
+
+st.markdown(
+    """
+    <div class="section-title">
+        Customer Portfolio
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# CHART 1 — FACTOR IMPACT
 # ============================================================
 
 factor_data = (
+
     df.groupby(
         "Satisfaction_Factor"
     )["Satisfaction_Score"]
+
     .sum()
+
     .reset_index()
+
     .sort_values(
         "Satisfaction_Score",
         ascending=False
     )
 )
 
-
-# ------------------------------------------------------------
-# CHART 1
-# ------------------------------------------------------------
 
 fig1 = px.bar(
 
@@ -1101,12 +1245,10 @@ fig1 = px.bar(
     color_continuous_scale="Cividis"
 )
 
-fig1 = glass_plot(fig1)
 
-
-# ------------------------------------------------------------
-# CHART 2
-# ------------------------------------------------------------
+# ============================================================
+# CHART 2 — SCORE DISTRIBUTION
+# ============================================================
 
 fig2 = px.pie(
 
@@ -1116,30 +1258,30 @@ fig2 = px.pie(
 
     values="Satisfaction_Score",
 
-    hole=0.5
+    hole=0.55
 )
 
-fig2.update_layout(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)"
-)
 
 fig2.update_traces(
+
     textfont=dict(
         color="white"
     )
 )
 
 
-# ------------------------------------------------------------
-# CHART 3
-# ------------------------------------------------------------
+# ============================================================
+# CHART 3 — AGE TREND
+# ============================================================
 
 age_data = (
+
     df.groupby(
         "Age"
     )["Satisfaction_Score"]
+
     .sum()
+
     .reset_index()
 )
 
@@ -1155,12 +1297,10 @@ fig3 = px.line(
     markers=True
 )
 
-fig3 = glass_plot(fig3)
 
-
-# ------------------------------------------------------------
-# CHART 4
-# ------------------------------------------------------------
+# ============================================================
+# CHART 4 — SCORE FREQUENCY
+# ============================================================
 
 fig4 = px.histogram(
 
@@ -1169,19 +1309,19 @@ fig4 = px.histogram(
     x="Satisfaction_Score"
 )
 
+
 fig4.update_traces(
+
     marker=dict(
         color=GOLD,
-        opacity=0.75
+        opacity=0.78
     )
 )
 
-fig4 = glass_plot(fig4)
 
-
-# ------------------------------------------------------------
-# CHART 5
-# ------------------------------------------------------------
+# ============================================================
+# CHART 5 — STATISTICAL RANGE
+# ============================================================
 
 fig5 = px.box(
 
@@ -1190,18 +1330,18 @@ fig5 = px.box(
     y="Satisfaction_Score"
 )
 
+
 fig5.update_traces(
+
     marker=dict(
         color=GOLD
     )
 )
 
-fig5 = glass_plot(fig5)
 
-
-# ------------------------------------------------------------
-# CHART 6
-# ------------------------------------------------------------
+# ============================================================
+# CHART 6 — DEMOGRAPHIC MAP
+# ============================================================
 
 fig6 = px.scatter(
 
@@ -1216,11 +1356,86 @@ fig6 = px.scatter(
     symbol="Gender"
 )
 
-fig6 = glass_plot(fig6)
+
+# ============================================================
+# TRANSPARENT PLOTLY THEME
+# ============================================================
+
+def make_glass_chart(fig):
+
+    fig.update_layout(
+
+        paper_bgcolor=
+            "rgba(0,0,0,0)",
+
+        plot_bgcolor=
+            "rgba(0,0,0,0)",
+
+        font=dict(
+            color=
+                "rgba(255,255,255,0.88)"
+        ),
+
+        legend=dict(
+            bgcolor=
+                "rgba(0,0,0,0)",
+
+            font=dict(
+                color=
+                    "rgba(255,255,255,0.82)"
+            )
+        ),
+
+        margin=dict(
+            l=45,
+            r=30,
+            t=55,
+            b=45
+        )
+    )
+
+    fig.update_xaxes(
+
+        color=
+            "rgba(255,255,255,0.72)",
+
+        gridcolor=
+            "rgba(255,255,255,0.07)",
+
+        zerolinecolor=
+            "rgba(255,255,255,0.10)"
+    )
+
+    fig.update_yaxes(
+
+        color=
+            "rgba(255,255,255,0.72)",
+
+        gridcolor=
+            "rgba(255,255,255,0.07)",
+
+        zerolinecolor=
+            "rgba(255,255,255,0.10)"
+    )
+
+    return fig
+
+
+fig1 = make_glass_chart(fig1)
+
+fig2 = make_glass_chart(fig2)
+
+fig3 = make_glass_chart(fig3)
+
+fig4 = make_glass_chart(fig4)
+
+fig5 = make_glass_chart(fig5)
+
+fig6 = make_glass_chart(fig6)
 
 
 # ============================================================
-# COMBINED DASHBOARD
+# COMBINE SIX CHARTS
 # ============================================================
 
 dashboard = make_subplots(
@@ -1230,15 +1445,23 @@ dashboard = make_subplots(
     cols=2,
 
     subplot_titles=[
+
         "Factor Impact",
+
         "Score Distribution",
+
         "Age Trend",
+
         "Score Frequency",
+
         "Statistical Range",
+
         "Demographic Map"
+
     ],
 
     specs=[
+
         [
             {"type": "xy"},
             {"type": "domain"}
@@ -1257,84 +1480,108 @@ dashboard = make_subplots(
 )
 
 
-for i, fig in enumerate(
-    [
-        fig1,
-        fig2,
-        fig3,
-        fig4,
-        fig5,
-        fig6
-    ]
-):
+figures = [
 
-    row = (i // 2) + 1
-    col = (i % 2) + 1
+    fig1,
+
+    fig2,
+
+    fig3,
+
+    fig4,
+
+    fig5,
+
+    fig6
+]
+
+
+for i, fig in enumerate(figures):
+
+    row = (
+        i // 2
+    ) + 1
+
+    col = (
+        i % 2
+    ) + 1
 
     for trace in fig.data:
 
         dashboard.add_trace(
+
             trace,
+
             row=row,
+
             col=col
         )
 
 
 # ============================================================
-# IMPORTANT — TRANSPARENT COMBINED PLOT
+# DASHBOARD TRANSPARENCY
 # ============================================================
 
 dashboard.update_layout(
 
-    height=1300,
+    height=1250,
 
-    paper_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor=
+        "rgba(0,0,0,0)",
 
-    plot_bgcolor="rgba(0,0,0,0)",
-
-    showlegend=True,
+    plot_bgcolor=
+        "rgba(0,0,0,0)",
 
     title=dict(
-        text="Integrated Customer Portfolio Analysis",
+
+        text=
+            "Customer Portfolio",
+
         font=dict(
-            color="white",
+
+            color="#FFFFFF",
+
             size=22
         )
     ),
 
     font=dict(
-        color="rgba(255,255,255,0.88)"
-    ),
 
-    margin=dict(
-        l=50,
-        r=40,
-        t=80,
-        b=40
+        color=
+            "rgba(255,255,255,0.88)"
     ),
 
     legend=dict(
-        bgcolor="rgba(0,0,0,0)",
-        font=dict(
-            color="rgba(255,255,255,0.80)"
-        )
+
+        bgcolor=
+            "rgba(0,0,0,0)"
+    ),
+
+    margin=dict(
+
+        l=40,
+
+        r=30,
+
+        t=80,
+
+        b=40
     )
 )
 
-
-# ------------------------------------------------------------
-# FORCE ALL SUBPLOTS TRANSPARENT
-# ------------------------------------------------------------
 
 dashboard.update_xaxes(
 
     showgrid=True,
 
-    gridcolor="rgba(255,255,255,0.07)",
+    gridcolor=
+        "rgba(255,255,255,0.07)",
 
-    zerolinecolor="rgba(255,255,255,0.10)",
+    zerolinecolor=
+        "rgba(255,255,255,0.10)",
 
-    color="rgba(255,255,255,0.75)"
+    color=
+        "rgba(255,255,255,0.72)"
 )
 
 
@@ -1342,11 +1589,14 @@ dashboard.update_yaxes(
 
     showgrid=True,
 
-    gridcolor="rgba(255,255,255,0.07)",
+    gridcolor=
+        "rgba(255,255,255,0.07)",
 
-    zerolinecolor="rgba(255,255,255,0.10)",
+    zerolinecolor=
+        "rgba(255,255,255,0.10)",
 
-    color="rgba(255,255,255,0.75)"
+    color=
+        "rgba(255,255,255,0.72)"
 )
 
 
@@ -1354,7 +1604,12 @@ st.plotly_chart(
 
     dashboard,
 
-    use_container_width=True
+    use_container_width=True,
+
+    config={
+        "displayModeBar": True,
+        "responsive": True
+    }
 )
 
 
@@ -1362,19 +1617,30 @@ st.plotly_chart(
 # SEGMENT BREAKDOWN
 # ============================================================
 
-st.subheader(
-    "Segment Breakdown"
+st.markdown(
+    """
+    <div class="section-title">
+        Segment Breakdown
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 
 seg_counts = (
+
     df["Group"]
+
     .value_counts()
+
     .reset_index()
 )
 
+
 seg_counts.columns = [
+
     "Group",
+
     "Count"
 ]
 
@@ -1392,11 +1658,16 @@ fig_seg = px.bar(
     title="Customers per Segment"
 )
 
-fig_seg = glass_plot(fig_seg)
+
+fig_seg = make_glass_chart(
+    fig_seg
+)
 
 
 st.plotly_chart(
+
     fig_seg,
+
     use_container_width=True
 )
 
@@ -1405,21 +1676,40 @@ st.plotly_chart(
 # FEATURE IMPORTANCE
 # ============================================================
 
+st.markdown(
+    """
+    <div class="section-title">
+        Prediction Intelligence
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
 importances = (
+
     pd.Series(
+
         model.feature_importances_,
+
         index=X.columns
+
     )
+
     .sort_values(
         ascending=False
     )
+
     .head(10)
+
     .reset_index()
 )
 
 
 importances.columns = [
+
     "Feature",
+
     "Importance"
 ]
 
@@ -1438,24 +1728,28 @@ fig_imp = px.bar(
 
     color_continuous_scale="Cividis",
 
-    title="Top Features Driving Segment Prediction"
+    title=
+        "Top Features Driving Segment Prediction"
 )
 
 
 fig_imp.update_layout(
+
     yaxis=dict(
         autorange="reversed"
     )
 )
 
 
-fig_imp = glass_plot(
+fig_imp = make_glass_chart(
     fig_imp
 )
 
 
 st.plotly_chart(
+
     fig_imp,
+
     use_container_width=True
 )
 
@@ -1468,32 +1762,48 @@ fig_cm = px.imshow(
 
     cm,
 
-    x=list(le.classes_),
+    x=list(
+        label_encoder.classes_
+    ),
 
-    y=list(le.classes_),
+    y=list(
+        label_encoder.classes_
+    ),
 
     text_auto=True,
 
-    color_continuous_scale="Cividis",
+    color_continuous_scale=
+        "Cividis",
 
     labels={
-        "x": "Predicted",
-        "y": "Actual",
-        "color": "Count"
+
+        "x":
+            "Predicted",
+
+        "y":
+            "Actual",
+
+        "color":
+            "Count"
     },
 
-    title="Confusion Matrix (Test Set)"
+    title=
+        "Prediction Accuracy Matrix"
 )
 
 
 fig_cm.update_layout(
 
-    paper_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor=
+        "rgba(0,0,0,0)",
 
-    plot_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor=
+        "rgba(0,0,0,0)",
 
     font=dict(
-        color="rgba(255,255,255,0.88)"
+
+        color=
+            "rgba(255,255,255,0.88)"
     )
 )
 
@@ -1510,8 +1820,13 @@ st.plotly_chart(
 # CLASSIFICATION REPORT
 # ============================================================
 
-st.subheader(
-    "Detailed Classification Report"
+st.markdown(
+    """
+    <div class="section-title">
+        Model Performance
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 
@@ -1519,7 +1834,9 @@ st.dataframe(
 
     report_df,
 
-    use_container_width=True
+    use_container_width=True,
+
+    hide_index=True
 )
 
 
@@ -1527,14 +1844,19 @@ st.dataframe(
 # LIVE PREDICTION
 # ============================================================
 
-st.subheader(
-    "Live Prediction Tool"
+st.markdown(
+    """
+    <div class="section-title">
+        Live Customer Prediction
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 
 selected_customer_id = st.selectbox(
 
-    "Customer ID:",
+    "Select Customer",
 
     sorted(
         df["Customer_ID"].unique()
@@ -1543,7 +1865,9 @@ selected_customer_id = st.selectbox(
 
 
 if st.button(
-    "Predict Segment",
+
+    "⚡  Predict Customer Segment",
+
     type="primary"
 ):
 
@@ -1563,77 +1887,107 @@ if st.button(
     )
 
 
-    input_df = input_df_original.copy()
-
-
     input_encoded = pd.get_dummies(
 
-        input_df,
+        input_df_original,
 
-        columns=categorical_cols,
+        columns=
+            categorical_cols,
 
         drop_first=True
     )
 
 
-    input_encoded = input_encoded.reindex(
-
-        columns=X.columns,
-
-        fill_value=0
+    input_encoded = (
+        input_encoded
+        .reindex(
+            columns=X.columns,
+            fill_value=0
+        )
     )
 
 
-    pred = model.predict(
+    prediction = model.predict(
         input_encoded
     )
 
 
     predicted_label = (
-        le.inverse_transform(pred)[0]
+
+        label_encoder
+        .inverse_transform(
+            prediction
+        )[0]
     )
 
 
-    proba = model.predict_proba(
-        input_encoded
-    )[0]
+    probabilities = (
+
+        model
+        .predict_proba(
+            input_encoded
+        )[0]
+    )
 
 
-    confidence = proba.max()
+    confidence = probabilities.max()
 
+
+    # --------------------------------------------------------
+    # PREDICTION CARD
+    # --------------------------------------------------------
 
     st.markdown(
-
         f"""
-        <div class="prediction-box">
+        <div class="prediction-card">
 
-            <h3>
-                Predicted Segment for
-                {selected_customer_id}:
+            <div style="
+                color: rgba(255,255,255,0.50);
+                font-size: 0.75rem;
+                letter-spacing: 2px;
+                font-weight: 700;
+                margin-bottom: 10px;
+            ">
+                PREDICTED CUSTOMER SEGMENT
+            </div>
+
+            <div style="
+                color: #FFD700;
+                font-size: 2rem;
+                font-weight: 800;
+                margin-bottom: 8px;
+            ">
                 {predicted_label}
-            </h3>
+            </div>
 
-            <p>
-                Confidence:
-                {confidence:.1%}
-            </p>
+            <div style="
+                color: rgba(255,255,255,0.70);
+                font-size: 1rem;
+            ">
+                Confidence: {confidence:.1%}
+            </div>
 
         </div>
         """,
-
         unsafe_allow_html=True
     )
 
 
+    # --------------------------------------------------------
+    # PROBABILITY CHART
+    # --------------------------------------------------------
+
     prob_df = pd.DataFrame({
 
         "Segment":
-            le.classes_,
+            label_encoder.classes_,
 
         "Probability":
-            proba
+            probabilities
+    })
 
-    }).sort_values(
+
+    prob_df = prob_df.sort_values(
 
         "Probability",
 
@@ -1651,11 +2005,12 @@ if st.button(
 
         color="Segment",
 
-        title="Prediction Confidence by Segment"
+        title=
+            "Segment Prediction Confidence"
     )
 
 
-    fig_prob = glass_plot(
+    fig_prob = make_glass_chart(
         fig_prob
     )
 
@@ -1673,16 +2028,14 @@ if st.button(
 # ============================================================
 
 st.markdown(
-
     """
-    <hr>
+    <div class="footer-text">
 
-    <div class="footer">
-
-        Strategic Customer Insights Dashboard
+        STRATEGIC CUSTOMER INSIGHTS
+        &nbsp; • &nbsp;
+        ANALYTICS DASHBOARD
 
     </div>
     """,
-
     unsafe_allow_html=True
 )
