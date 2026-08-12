@@ -1,4 +1,3 @@
-
 import os
 import numpy as np
 import pandas as pd
@@ -21,7 +20,7 @@ from sklearn.preprocessing import LabelEncoder
 # ============================================================
 
 st.set_page_config(
-    page_title="Customer Segmentation Analytics",
+    page_title="Strategic Customer Analytics",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -33,6 +32,7 @@ st.set_page_config(
 # ============================================================
 
 GOLD = "#FFD700"
+NAVY = "#191970"
 
 
 # ============================================================
@@ -50,7 +50,7 @@ CSV_PATH = os.path.join(
 
 
 # ============================================================
-# GENERATE DATA
+# SAMPLE DATA GENERATOR
 # ============================================================
 
 def generate_sample_data(
@@ -116,9 +116,13 @@ def generate_sample_data(
     )
 
     loyalty_spend_base = {
+
         "Bronze": 300,
+
         "Silver": 900,
+
         "Gold": 2200,
+
         "Platinum": 5000
     }
 
@@ -168,9 +172,11 @@ def generate_sample_data(
     ):
 
         if score < 4:
+
             return "At Risk"
 
         elif spend > 1500 and score >= 6:
+
             return "Settled"
 
         return "Attention Required"
@@ -237,17 +243,23 @@ df = generate_sample_data()
 
 
 # ============================================================
-# VALIDATION
+# VALIDATE DATA
 # ============================================================
 
 REQUIRED_COLS = {
 
     "Customer_ID",
+
     "Group",
+
     "Satisfaction_Factor",
+
     "Satisfaction_Score",
+
     "Age",
+
     "Loyalty_Level",
+
     "Gender"
 }
 
@@ -308,7 +320,6 @@ label_encoder = LabelEncoder()
 
 
 df_encoded["Group_encoded"] = (
-
     label_encoder
     .fit_transform(
         df_encoded["Group"]
@@ -334,6 +345,7 @@ y = df_encoded[
 X_train, X_test, y_train, y_test = train_test_split(
 
     X,
+
     y,
 
     test_size=0.20,
@@ -404,7 +416,7 @@ st.markdown(
     <style>
 
     /* ======================================================
-       GLOBAL BACKGROUND
+       GLOBAL APP
        ====================================================== */
 
     .stApp {
@@ -445,19 +457,30 @@ st.markdown(
        ====================================================== */
 
     [data-testid="stAppViewContainer"] {
-        background: transparent !important;
+
+        background:
+            transparent !important;
     }
+
 
     [data-testid="stHeader"] {
-        background: transparent !important;
+
+        background:
+            transparent !important;
     }
+
 
     [data-testid="stToolbar"] {
-        background: transparent !important;
+
+        background:
+            transparent !important;
     }
 
+
     .main {
-        background: transparent !important;
+
+        background:
+            transparent !important;
     }
 
 
@@ -481,13 +504,31 @@ st.markdown(
 
 
     /* ======================================================
-       LIQUID GLASS HEADER
+       MAIN TITLE
        ====================================================== */
 
-    .header-glass {
+    .app-title {
+
+        text-align:
+            center;
+
+        font-size:
+            clamp(2rem, 5vw, 4.2rem);
+
+        font-weight:
+            800;
+
+        letter-spacing:
+            3px;
+
+        line-height:
+            1.05;
+
+        color:
+            #ffffff;
 
         padding:
-            32px 20px;
+            30px 20px;
 
         border-radius:
             28px;
@@ -519,41 +560,12 @@ st.markdown(
         -webkit-backdrop-filter:
             blur(25px);
 
-        text-align:
-            center;
-
         margin-bottom:
             28px;
     }
 
 
-    /* ======================================================
-       HEADER TEXT
-       ====================================================== */
-
-    .header-text {
-
-        color:
-            #ffffff;
-
-        font-size:
-            clamp(2rem, 5vw, 4rem);
-
-        font-weight:
-            800;
-
-        letter-spacing:
-            3px;
-
-        line-height:
-            1.05;
-
-        margin:
-            0;
-    }
-
-
-    .header-glow {
+    .title-line {
 
         width:
             120px;
@@ -582,13 +594,13 @@ st.markdown(
 
 
     /* ======================================================
-       SECTION TITLE
+       SECTION TITLES
        ====================================================== */
 
     .section-title {
 
         font-size:
-            1.35rem;
+            1.45rem;
 
         font-weight:
             700;
@@ -630,7 +642,7 @@ st.markdown(
 
 
     /* ======================================================
-       METRIC CARDS
+       STREAMLIT METRIC CARDS
        ====================================================== */
 
     [data-testid="stMetric"] {
@@ -693,41 +705,41 @@ st.markdown(
     [data-testid="stMetricLabel"] {
 
         color:
-            rgba(255,255,255,0.52)
-            !important;
+            rgba(255,255,255,0.52) !important;
 
         font-size:
-            0.75rem
-            !important;
+            0.75rem !important;
 
         font-weight:
-            700
-            !important;
+            700 !important;
 
         letter-spacing:
-            1.5px
-            !important;
+            1.5px !important;
     }
 
 
     [data-testid="stMetricValue"] {
 
         color:
-            #ffffff
-            !important;
+            #ffffff !important;
 
         font-size:
-            2.2rem
-            !important;
+            2.2rem !important;
 
         font-weight:
-            750
-            !important;
+            750 !important;
+    }
+
+
+    [data-testid="stMetricDelta"] {
+
+        color:
+            rgba(255,215,0,0.75) !important;
     }
 
 
     /* ======================================================
-       PLOTLY GLASS
+       PLOTLY GLASS CARDS
        ====================================================== */
 
     div[data-testid="stPlotlyChart"] {
@@ -778,7 +790,7 @@ st.markdown(
 
 
     /* ======================================================
-       SELECTBOX
+       SELECT BOX
        ====================================================== */
 
     div[data-baseweb="select"] > div {
@@ -793,12 +805,10 @@ st.markdown(
             !important;
 
         border-radius:
-            16px
-            !important;
+            16px !important;
 
         color:
-            white
-            !important;
+            white !important;
 
         backdrop-filter:
             blur(20px);
@@ -818,8 +828,7 @@ st.markdown(
     div[data-baseweb="select"] span {
 
         color:
-            #ffffff
-            !important;
+            #ffffff !important;
     }
 
 
@@ -835,8 +844,7 @@ st.markdown(
             !important;
 
         border-radius:
-            16px
-            !important;
+            16px !important;
 
         backdrop-filter:
             blur(25px);
@@ -890,6 +898,9 @@ st.markdown(
 
             inset 0 1px 1px
             rgba(255,255,255,0.20);
+
+        transition:
+            all 0.25s ease;
     }
 
 
@@ -936,7 +947,7 @@ st.markdown(
 
 
     /* ======================================================
-       PREDICTION CARD
+       PREDICTION RESULT
        ====================================================== */
 
     .prediction-card {
@@ -983,70 +994,68 @@ st.markdown(
 
 
     /* ======================================================
-       FOOTER GLASS
+       FOOTER
        ====================================================== */
 
-    .footer-glass {
+    .footer-text {
 
         text-align:
             center;
 
-        padding:
-            22px 18px;
-
-        margin-top:
-            35px;
-
-        border-radius:
-            22px;
-
-        background:
-            linear-gradient(
-                135deg,
-                rgba(255,255,255,0.09),
-                rgba(255,255,255,0.025)
-            );
-
-        border:
-            1px solid
-            rgba(255,255,255,0.15);
-
-        box-shadow:
-            0 12px 35px
-            rgba(0,0,0,0.35),
-
-            inset 0 1px 1px
-            rgba(255,255,255,0.15);
-
-        backdrop-filter:
-            blur(22px);
-
-        -webkit-backdrop-filter:
-            blur(22px);
-    }
-
-
-    .footer-text {
-
         color:
-            rgba(255,215,0,0.85);
+            rgba(255,215,0,0.75);
 
         font-size:
-            0.78rem;
-
-        font-weight:
-            700;
+            0.8rem;
 
         letter-spacing:
-            1.8px;
+            1.5px;
 
-        margin:
-            0;
+        padding:
+            20px;
+
+        margin-top:
+            30px;
     }
 
 
     /* ======================================================
-       MOBILE
+       SCROLLBAR
+       ====================================================== */
+
+    ::-webkit-scrollbar {
+
+        width:
+            7px;
+    }
+
+
+    ::-webkit-scrollbar-track {
+
+        background:
+            #030303;
+    }
+
+
+    ::-webkit-scrollbar-thumb {
+
+        background:
+            rgba(255,215,0,0.35);
+
+        border-radius:
+            10px;
+    }
+
+
+    ::-webkit-scrollbar-thumb:hover {
+
+        background:
+            rgba(255,215,0,0.65);
+    }
+
+
+    /* ======================================================
+       MOBILE RESPONSIVE
        ====================================================== */
 
     @media (max-width: 768px) {
@@ -1064,7 +1073,13 @@ st.markdown(
         }
 
 
-        .header-glass {
+        .app-title {
+
+            font-size:
+                2rem;
+
+            letter-spacing:
+                1.5px;
 
             padding:
                 28px 14px;
@@ -1074,27 +1089,17 @@ st.markdown(
         }
 
 
-        .header-text {
-
-            font-size:
-                2rem;
-
-            letter-spacing:
-                1.5px;
-        }
-
-
         .section-title {
 
             font-size:
-                1.15rem;
+                1.2rem;
         }
 
 
         [data-testid="stMetric"] {
 
             min-height:
-                130px;
+                135px;
 
             padding:
                 17px !important;
@@ -1120,16 +1125,6 @@ st.markdown(
                 3px;
         }
 
-
-        .footer-glass {
-
-            border-radius:
-                18px;
-
-            padding:
-                18px 10px;
-        }
-
     }
 
     </style>
@@ -1139,31 +1134,23 @@ st.markdown(
 
 
 # ============================================================
-# HEADER
-# IMPORTANT:
-# NO HTML IS USED FOR THE ACTUAL HEADER CONTENT.
+# APP HEADER
 # ============================================================
 
-with st.container():
+st.markdown(
+    """
+    <div class="app-title">
 
-    st.markdown(
-        '<div class="header-glass">',
-        unsafe_allow_html=True
-    )
+        STRATEGIC CUSTOMER
+        <br>
+        SEGMENTATION ANALYTICS
 
-    st.markdown(
-        "CUSTOMER SEGMENTATION ANALYTICS"
-    )
+        <div class="title-line"></div>
 
-    st.markdown(
-        '<div class="header-glow"></div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        "</div>",
-        unsafe_allow_html=True
-    )
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 
 # ============================================================
@@ -1211,7 +1198,7 @@ with metric3:
 
 
 # ============================================================
-# PORTFOLIO TITLE
+# PORTFOLIO ANALYSIS TITLE
 # ============================================================
 
 st.markdown(
@@ -1371,7 +1358,7 @@ fig6 = px.scatter(
 
 
 # ============================================================
-# GLASS CHART FUNCTION
+# TRANSPARENT PLOTLY THEME
 # ============================================================
 
 def make_glass_chart(fig):
@@ -1390,7 +1377,6 @@ def make_glass_chart(fig):
         ),
 
         legend=dict(
-
             bgcolor=
                 "rgba(0,0,0,0)",
 
@@ -1401,17 +1387,12 @@ def make_glass_chart(fig):
         ),
 
         margin=dict(
-
             l=45,
-
             r=30,
-
             t=55,
-
             b=45
         )
     )
-
 
     fig.update_xaxes(
 
@@ -1425,7 +1406,6 @@ def make_glass_chart(fig):
             "rgba(255,255,255,0.10)"
     )
 
-
     fig.update_yaxes(
 
         color=
@@ -1437,7 +1417,6 @@ def make_glass_chart(fig):
         zerolinecolor=
             "rgba(255,255,255,0.10)"
     )
-
 
     return fig
 
@@ -1456,7 +1435,7 @@ fig6 = make_glass_chart(fig6)
 
 
 # ============================================================
-# COMBINE CHARTS
+# COMBINE SIX CHARTS
 # ============================================================
 
 dashboard = make_subplots(
@@ -1504,12 +1483,16 @@ dashboard = make_subplots(
 figures = [
 
     fig1,
-    fig2,
-    fig3,
-    fig4,
-    fig5,
-    fig6
 
+    fig2,
+
+    fig3,
+
+    fig4,
+
+    fig5,
+
+    fig6
 ]
 
 
@@ -1536,7 +1519,7 @@ for i, fig in enumerate(figures):
 
 
 # ============================================================
-# DASHBOARD STYLE
+# DASHBOARD TRANSPARENCY
 # ============================================================
 
 dashboard.update_layout(
@@ -1657,8 +1640,8 @@ seg_counts = (
 seg_counts.columns = [
 
     "Group",
-    "Count"
 
+    "Count"
 ]
 
 
@@ -1690,7 +1673,7 @@ st.plotly_chart(
 
 
 # ============================================================
-# PREDICTION INTELLIGENCE
+# FEATURE IMPORTANCE
 # ============================================================
 
 st.markdown(
@@ -1726,8 +1709,8 @@ importances = (
 importances.columns = [
 
     "Feature",
-    "Importance"
 
+    "Importance"
 ]
 
 
@@ -1802,7 +1785,6 @@ fig_cm = px.imshow(
 
         "color":
             "Count"
-
     },
 
     title=
@@ -1835,7 +1817,7 @@ st.plotly_chart(
 
 
 # ============================================================
-# MODEL PERFORMANCE
+# CLASSIFICATION REPORT
 # ============================================================
 
 st.markdown(
@@ -1859,7 +1841,7 @@ st.dataframe(
 
 
 # ============================================================
-# LIVE CUSTOMER PREDICTION
+# LIVE PREDICTION
 # ============================================================
 
 st.markdown(
@@ -1917,20 +1899,15 @@ if st.button(
 
 
     input_encoded = (
-
         input_encoded
-
         .reindex(
-
             columns=X.columns,
-
             fill_value=0
         )
     )
 
 
     prediction = model.predict(
-
         input_encoded
     )
 
@@ -1938,7 +1915,6 @@ if st.button(
     predicted_label = (
 
         label_encoder
-
         .inverse_transform(
             prediction
         )[0]
@@ -1948,40 +1924,53 @@ if st.button(
     probabilities = (
 
         model
-
         .predict_proba(
             input_encoded
         )[0]
     )
 
 
-    confidence = (
-        probabilities.max()
-    )
+    confidence = probabilities.max()
 
 
     # --------------------------------------------------------
-    # PREDICTION RESULT
+    # PREDICTION CARD
     # --------------------------------------------------------
 
-    prediction_box = st.container(
-        border=True
+    st.markdown(
+        f"""
+        <div class="prediction-card">
+
+            <div style="
+                color: rgba(255,255,255,0.50);
+                font-size: 0.75rem;
+                letter-spacing: 2px;
+                font-weight: 700;
+                margin-bottom: 10px;
+            ">
+                PREDICTED CUSTOMER SEGMENT
+            </div>
+
+            <div style="
+                color: #FFD700;
+                font-size: 2rem;
+                font-weight: 800;
+                margin-bottom: 8px;
+            ">
+                {predicted_label}
+            </div>
+
+            <div style="
+                color: rgba(255,255,255,0.70);
+                font-size: 1rem;
+            ">
+                Confidence: {confidence:.1%}
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
     )
-
-
-    with prediction_box:
-
-        st.markdown(
-            "### Predicted Customer Segment"
-        )
-
-        st.markdown(
-            f"## {predicted_label}"
-        )
-
-        st.caption(
-            f"Confidence: {confidence:.1%}"
-        )
 
 
     # --------------------------------------------------------
@@ -1995,7 +1984,6 @@ if st.button(
 
         "Probability":
             probabilities
-
     })
 
 
@@ -2037,18 +2025,17 @@ if st.button(
 
 # ============================================================
 # FOOTER
-# IMPORTANT:
-# FOOTER TEXT IS PLAIN STREAMLIT TEXT.
 # ============================================================
 
 st.markdown(
-    "---"
+    """
+    <div class="footer-text">
+
+        STRATEGIC CUSTOMER INSIGHTS
+        &nbsp; • &nbsp;
+        ANALYTICS DASHBOARD
+
+    </div>
+    """,
+    unsafe_allow_html=True
 )
-
-
-with st.container():
-
-    st.markdown(
-        "CUSTOMER INSIGHTS • ANALYTICS DASHBOARD"
-    )
-```
