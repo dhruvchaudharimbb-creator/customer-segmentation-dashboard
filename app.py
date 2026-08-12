@@ -1137,7 +1137,7 @@ st.markdown(
 # APP HEADER
 # ============================================================
 
-st.markdown(
+st.html(
     """
     <div class="app-title">
 
@@ -1149,7 +1149,7 @@ st.markdown(
 
     </div>
     """,
-    unsafe_allow_html=True
+
 )
 
 
@@ -1843,14 +1843,36 @@ st.dataframe(
 # ============================================================
 # LIVE PREDICTION
 # ============================================================
+st.html(
+    f"""
+    <div class="prediction-card">
+        <div style="
+            color: rgba(255,255,255,0.50);
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        ">
+            PREDICTED CUSTOMER SEGMENT
+        </div>
 
-st.markdown(
-    """
-    <div class="section-title">
-        Live Customer Prediction
+        <div style="
+            color: #FFD700;
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        ">
+            {predicted_label}
+        </div>
+
+        <div style="
+            color: rgba(255,255,255,0.70);
+            font-size: 1rem;
+        ">
+            Confidence: {confidence:.1%}
+        </div>
     </div>
-    """,
-    unsafe_allow_html=True
+    """
 )
 
 
@@ -2029,7 +2051,7 @@ if st.button(
 # FOOTER
 # ============================================================
 
-st.markdown(
+st.html(
     """
     <div class="footer-text">
 
@@ -2039,5 +2061,5 @@ st.markdown(
 
     </div>
     """,
-    unsafe_allow_html=True
+   
 )
