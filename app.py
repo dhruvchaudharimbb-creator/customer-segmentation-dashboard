@@ -171,69 +171,578 @@ report_df = pd.DataFrame(
 cm = confusion_matrix(y_test, y_pred)
 
 # ------------------------------------------------------------
-# CUSTOM CSS — KEEPS THE ORIGINAL GOLD/NAVY/SLATE STYLE
+# LIQUID GLASS UI
 # ------------------------------------------------------------
 st.markdown(
     f"""
     <style>
-    .main-title {{
-        text-align:center;
-        color:{GOLD};
-        background:{NAVY};
-        padding:25px;
-        border-radius:10px;
-        border:2px solid {GOLD};
-        margin-bottom:20px;
+
+    /* ========================================================
+       GLOBAL BACKGROUND
+       ======================================================== */
+
+    .stApp {{
+        background:
+            radial-gradient(
+                circle at 10% 10%,
+                rgba(255, 215, 0, 0.10),
+                transparent 30%
+            ),
+            radial-gradient(
+                circle at 90% 20%,
+                rgba(80, 120, 255, 0.12),
+                transparent 30%
+            ),
+            radial-gradient(
+                circle at 50% 90%,
+                rgba(0, 180, 255, 0.08),
+                transparent 35%
+            ),
+            linear-gradient(
+                135deg,
+                #050505 0%,
+                #0b1020 45%,
+                #050505 100%
+            );
+
+        background-attachment: fixed;
     }}
 
+
+    /* ========================================================
+       MAIN CONTENT
+       ======================================================== */
+
+    .main .block-container {{
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+        max-width: 1500px;
+    }}
+
+
+    /* ========================================================
+       LIQUID GLASS HEADER
+       ======================================================== */
+
+    .main-title {{
+        text-align: center;
+
+        color: #ffffff;
+
+        padding: 30px 25px;
+
+        border-radius: 24px;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(255,255,255,0.12),
+                rgba(255,255,255,0.035)
+            );
+
+        border: 1px solid rgba(255,255,255,0.20);
+
+        box-shadow:
+            0 8px 32px rgba(0,0,0,0.45),
+            inset 0 1px 1px rgba(255,255,255,0.25),
+            0 0 30px rgba(255,215,0,0.08);
+
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+
+        letter-spacing: 2px;
+
+        margin-bottom: 25px;
+    }}
+
+    .main-title::after {{
+        content: "";
+
+        display: block;
+
+        width: 120px;
+
+        height: 2px;
+
+        margin: 15px auto 0;
+
+        background: linear-gradient(
+            90deg,
+            transparent,
+            #FFD700,
+            transparent
+        );
+
+        box-shadow:
+            0 0 12px rgba(255,215,0,0.7);
+    }}
+
+
+    /* ========================================================
+       SUMMARY GLASS CARD
+       ======================================================== */
+
     .summary {{
-        text-align:center;
-        background:{SLATE};
-        padding:15px;
-        border-radius:8px;
-        border:1px solid {GOLD};
-        margin-top:20px;
-        margin-bottom:20px;
+        text-align: center;
+
+        padding: 22px;
+
+        border-radius: 22px;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(255,255,255,0.11),
+                rgba(255,255,255,0.035)
+            );
+
+        border: 1px solid rgba(255,255,255,0.18);
+
+        box-shadow:
+            0 10px 35px rgba(0,0,0,0.35),
+            inset 0 1px 1px rgba(255,255,255,0.18);
+
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+
+        margin: 20px 0;
     }}
 
     .summary h2 {{
-        color:{GOLD};
+        color: #FFD700;
+
+        font-size: 1.35rem;
+
+        margin-bottom: 10px;
+
+        text-shadow:
+            0 0 15px rgba(255,215,0,0.35);
     }}
 
     .summary p {{
-        color:white;
-        font-size:1.2em;
+        color: rgba(255,255,255,0.90);
+
+        font-size: 1.15rem;
+
+        margin: 0;
     }}
 
+
+    /* ========================================================
+       STREAMLIT METRICS
+       ======================================================== */
+
+    [data-testid="stMetric"] {{
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(255,255,255,0.10),
+                rgba(255,255,255,0.025)
+            );
+
+        border: 1px solid rgba(255,255,255,0.16);
+
+        border-radius: 20px;
+
+        padding: 20px;
+
+        box-shadow:
+            0 8px 30px rgba(0,0,0,0.35),
+            inset 0 1px 1px rgba(255,255,255,0.18);
+
+        backdrop-filter: blur(22px);
+        -webkit-backdrop-filter: blur(22px);
+
+        transition: all 0.3s ease;
+    }}
+
+    [data-testid="stMetric"]:hover {{
+        transform: translateY(-3px);
+
+        border-color:
+            rgba(255,215,0,0.45);
+
+        box-shadow:
+            0 12px 35px rgba(0,0,0,0.45),
+            0 0 25px rgba(255,215,0,0.10);
+    }}
+
+    [data-testid="stMetricLabel"] {{
+        color: rgba(255,255,255,0.65) !important;
+    }}
+
+    [data-testid="stMetricValue"] {{
+        color: #ffffff !important;
+    }}
+
+
+    /* ========================================================
+       ALL STREAMLIT INPUTS
+       ======================================================== */
+
+    div[data-baseweb="select"] > div {{
+
+        background:
+            rgba(255,255,255,0.07) !important;
+
+        border:
+            1px solid rgba(255,255,255,0.18) !important;
+
+        border-radius: 16px !important;
+
+        backdrop-filter: blur(20px);
+
+        -webkit-backdrop-filter: blur(20px);
+
+        box-shadow:
+            inset 0 1px 1px rgba(255,255,255,0.15),
+            0 5px 20px rgba(0,0,0,0.25);
+
+        color: white !important;
+    }}
+
+    div[data-baseweb="select"] > div:hover {{
+
+        border-color:
+            rgba(255,215,0,0.55) !important;
+
+        box-shadow:
+            0 0 20px rgba(255,215,0,0.10);
+    }}
+
+
+    /* ========================================================
+       SELECTBOX TEXT
+       ======================================================== */
+
+    div[data-baseweb="select"] span {{
+        color: white !important;
+    }}
+
+
+    /* ========================================================
+       DROPDOWN MENU
+       ======================================================== */
+
+    div[data-baseweb="popover"] {{
+        background:
+            rgba(15,20,35,0.88) !important;
+
+        border:
+            1px solid rgba(255,255,255,0.18) !important;
+
+        border-radius: 16px !important;
+
+        backdrop-filter: blur(25px);
+
+        -webkit-backdrop-filter: blur(25px);
+
+        box-shadow:
+            0 20px 50px rgba(0,0,0,0.55);
+    }}
+
+
+    /* ========================================================
+       BUTTON — LIQUID GLASS
+       ======================================================== */
+
+    .stButton > button {{
+
+        width: 100%;
+
+        padding: 12px 20px;
+
+        border-radius: 16px;
+
+        border:
+            1px solid rgba(255,255,255,0.20);
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(255,255,255,0.14),
+                rgba(255,255,255,0.045)
+            );
+
+        color: white;
+
+        font-weight: 600;
+
+        letter-spacing: 0.5px;
+
+        backdrop-filter: blur(20px);
+
+        -webkit-backdrop-filter: blur(20px);
+
+        box-shadow:
+            0 8px 25px rgba(0,0,0,0.30),
+            inset 0 1px 1px rgba(255,255,255,0.20);
+
+        transition:
+            all 0.25s ease;
+    }}
+
+    .stButton > button:hover {{
+
+        border-color:
+            rgba(255,215,0,0.75);
+
+        color: #FFD700;
+
+        transform: translateY(-2px);
+
+        box-shadow:
+            0 10px 30px rgba(0,0,0,0.40),
+            0 0 25px rgba(255,215,0,0.15);
+    }}
+
+    .stButton > button:active {{
+        transform: scale(0.98);
+    }}
+
+
+    /* ========================================================
+       SUBHEADINGS
+       ======================================================== */
+
+    h2, h3 {{
+        color: #ffffff !important;
+
+        letter-spacing: 0.5px;
+    }}
+
+    h2 {{
+        border-left: 3px solid #FFD700;
+
+        padding-left: 12px;
+
+        text-shadow:
+            0 0 15px rgba(255,255,255,0.08);
+    }}
+
+
+    /* ========================================================
+       PLOTLY CHART CONTAINERS
+       ======================================================== */
+
+    div[data-testid="stPlotlyChart"] {{
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(255,255,255,0.075),
+                rgba(255,255,255,0.025)
+            );
+
+        border:
+            1px solid rgba(255,255,255,0.14);
+
+        border-radius: 22px;
+
+        padding: 8px;
+
+        box-shadow:
+            0 10px 35px rgba(0,0,0,0.35),
+            inset 0 1px 1px rgba(255,255,255,0.12);
+
+        backdrop-filter: blur(18px);
+
+        -webkit-backdrop-filter: blur(18px);
+
+        margin-bottom: 18px;
+    }}
+
+
+    /* ========================================================
+       DATAFRAME
+       ======================================================== */
+
+    div[data-testid="stDataFrame"] {{
+
+        border-radius: 20px;
+
+        overflow: hidden;
+
+        border:
+            1px solid rgba(255,255,255,0.15);
+
+        box-shadow:
+            0 10px 35px rgba(0,0,0,0.35);
+
+        backdrop-filter: blur(20px);
+
+        -webkit-backdrop-filter: blur(20px);
+    }}
+
+
+    /* ========================================================
+       PREDICTION GLASS CARD
+       ======================================================== */
+
     .prediction-box {{
-        background:{SLATE};
-        padding:15px;
-        border-radius:8px;
-        border:1px solid {GOLD};
-        margin-top:15px;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(255,215,0,0.12),
+                rgba(255,255,255,0.035)
+            );
+
+        padding: 22px;
+
+        border-radius: 22px;
+
+        border:
+            1px solid rgba(255,215,0,0.35);
+
+        margin-top: 18px;
+
+        box-shadow:
+            0 10px 35px rgba(0,0,0,0.40),
+            0 0 25px rgba(255,215,0,0.08),
+            inset 0 1px 1px rgba(255,255,255,0.18);
+
+        backdrop-filter: blur(25px);
+
+        -webkit-backdrop-filter: blur(25px);
+
+        text-align: center;
     }}
 
     .prediction-box h3 {{
-        color:{GOLD};
+        color: #FFD700 !important;
+
+        font-size: 1.35rem;
+
+        text-shadow:
+            0 0 15px rgba(255,215,0,0.35);
     }}
 
     .prediction-box p {{
-        color:white;
+        color:
+            rgba(255,255,255,0.85);
+
+        font-size: 1.05rem;
     }}
 
-    .footer {{
-        text-align:center;
-        background:{NAVY};
-        color:{GOLD};
-        padding:20px;
-        border-bottom:5px solid {GOLD};
-        margin-top:30px;
+
+    /* ========================================================
+       DIVIDERS
+       ======================================================== */
+
+    hr {{
+        border: none;
+
+        height: 1px;
+
+        background:
+            linear-gradient(
+                90deg,
+                transparent,
+                rgba(255,215,0,0.5),
+                transparent
+            );
+
+        margin: 35px 0;
     }}
+
+
+    /* ========================================================
+       FOOTER
+       ======================================================== */
+
+    .footer {{
+
+        text-align: center;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(255,255,255,0.08),
+                rgba(255,255,255,0.025)
+            );
+
+        color: #FFD700;
+
+        padding: 20px;
+
+        border-radius: 20px;
+
+        border:
+            1px solid rgba(255,255,255,0.15);
+
+        box-shadow:
+            0 10px 30px rgba(0,0,0,0.35),
+            inset 0 1px 1px rgba(255,255,255,0.15);
+
+        backdrop-filter: blur(20px);
+
+        -webkit-backdrop-filter: blur(20px);
+
+        margin-top: 30px;
+
+        letter-spacing: 1px;
+    }}
+
+
+    /* ========================================================
+       SCROLLBAR
+       ======================================================== */
+
+    ::-webkit-scrollbar {{
+        width: 8px;
+    }}
+
+    ::-webkit-scrollbar-track {{
+        background: #050505;
+    }}
+
+    ::-webkit-scrollbar-thumb {{
+        background:
+            rgba(255,215,0,0.35);
+
+        border-radius: 10px;
+    }}
+
+    ::-webkit-scrollbar-thumb:hover {{
+        background:
+            rgba(255,215,0,0.65);
+    }}
+
+
+    /* ========================================================
+       GLASS HIGHLIGHT
+       ======================================================== */
+
+    .stApp::before {{
+
+        content: "";
+
+        position: fixed;
+
+        top: -200px;
+        left: -200px;
+
+        width: 500px;
+        height: 500px;
+
+        background:
+            radial-gradient(
+                circle,
+                rgba(255,215,0,0.07),
+                transparent 65%
+            );
+
+        pointer-events: none;
+
+        z-index: 0;
+    }}
+
     </style>
     """,
     unsafe_allow_html=True
 )
-
 # ------------------------------------------------------------
 # STEP 3: HEADER + SUMMARY
 # ------------------------------------------------------------
@@ -348,8 +857,13 @@ for i, f in enumerate(
 dashboard.update_layout(
     height=1300,
     template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
     showlegend=True,
-    title_text="Integrated Customer Portfolio Analysis"
+    title_text="Integrated Customer Portfolio Analysis",
+    font=dict(
+        color="rgba(255,255,255,0.85)"
+    )
 )
 
 st.plotly_chart(
