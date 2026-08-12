@@ -829,6 +829,23 @@ fig6 = px.scatter(
     symbol="Gender"
 )
 
+# ------------------------------------------------------------
+# MAKE ALL CHARTS TRANSPARENT FOR LIQUID GLASS
+# ------------------------------------------------------------
+
+for fig in [fig1, fig2, fig3, fig4, fig5, fig6]:
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(
+            color="rgba(255,255,255,0.85)"
+        )
+    )
+
+# ------------------------------------------------------------
+# COMBINE CHARTS
+# ------------------------------------------------------------
+
 dashboard = make_subplots(
     rows=3,
     cols=2,
