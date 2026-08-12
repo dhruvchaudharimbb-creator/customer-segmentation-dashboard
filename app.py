@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 
 
 # ============================================================
-# PAGE CONFIGURATION
+# PAGE
 # ============================================================
 
 st.set_page_config(
@@ -19,36 +19,18 @@ st.set_page_config(
 
 
 # ============================================================
-# COLORS
-# ============================================================
-
-GOLD = "#FFD700"
-
-
-# ============================================================
-# FILE PATH
+# DATA
 # ============================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_PATH = os.path.join(BASE_DIR, "SEGMENTATION.csv")
 
-CSV_PATH = os.path.join(
-    BASE_DIR,
-    "SEGMENTATION.csv"
-)
-
-
-# ============================================================
-# SAMPLE DATA GENERATOR
-# ============================================================
 
 def generate_sample_data(path=CSV_PATH, n=500, seed=42):
 
     rng = np.random.default_rng(seed)
 
-    genders = [
-        "Male",
-        "Female"
-    ]
+    genders = ["Male", "Female"]
 
     factors = [
         "Price",
@@ -65,11 +47,7 @@ def generate_sample_data(path=CSV_PATH, n=500, seed=42):
         "Platinum"
     ]
 
-    age = rng.integers(
-        18,
-        70,
-        n
-    )
+    age = rng.integers(18, 70, n)
 
     gender = rng.choice(
         genders,
@@ -79,27 +57,16 @@ def generate_sample_data(path=CSV_PATH, n=500, seed=42):
     satisfaction_factor = rng.choice(
         factors,
         n,
-        p=[
-            0.25,
-            0.25,
-            0.20,
-            0.15,
-            0.15
-        ]
+        p=[0.25, 0.25, 0.20, 0.15, 0.15]
     )
 
     loyalty_level = rng.choice(
         loyalty_levels,
         n,
-        p=[
-            0.35,
-            0.30,
-            0.25,
-            0.10
-        ]
+        p=[0.35, 0.30, 0.25, 0.10]
     )
 
-    loyalty_spend_base = {
+    loyalty_spend = {
         "Bronze": 300,
         "Silver": 900,
         "Gold": 2200,
@@ -110,8 +77,8 @@ def generate_sample_data(path=CSV_PATH, n=500, seed=42):
         max(
             20,
             rng.normal(
-                loyalty_spend_base[level],
-                loyalty_spend_base[level] * 0.30
+                loyalty_spend[level],
+                loyalty_spend[level] * 0.30
             )
         )
         for level in loyalty_level
@@ -125,11 +92,7 @@ def generate_sample_data(path=CSV_PATH, n=500, seed=42):
     ).round(1)
 
     satisfaction_score = np.clip(
-        rng.normal(
-            5.5,
-            2.0,
-            n
-        )
+        rng.normal(5.5, 2.0, n)
         + (annual_spend / 2000),
         1,
         10
@@ -140,16 +103,13 @@ def generate_sample_data(path=CSV_PATH, n=500, seed=42):
         if score < 4:
             return "At Risk"
 
-        elif spend > 1500 and score >= 6:
+        if spend > 1500 and score >= 6:
             return "Settled"
 
         return "Attention Required"
 
     group = [
-        assign_group(
-            spend,
-            score
-        )
+        assign_group(spend, score)
         for spend, score
         in zip(
             annual_spend,
@@ -194,52 +154,13 @@ def generate_sample_data(path=CSV_PATH, n=500, seed=42):
     return data
 
 
-# ============================================================
-# LOAD DATA
-# ============================================================
-
 df = generate_sample_data()
 
 
 # ============================================================
-# VALIDATE DATA
+# SIMPLE ML — NO SKLEARN
 # ============================================================
 
-REQUIRED_COLS = {
-    "Customer_ID",
-    "Group",
-    "Satisfaction_Factor",
-    "Satisfaction_Score",
-    "Age",
-    "Loyalty_Level",
-    "Gender"
-}
-
-missing = REQUIRED_COLS - set(df.columns)
-
-if missing:
-
-    st.error(
-        f"Missing required columns: {missing}"
-    )
-
-    st.stop()
-
-
-# ============================================================
-# SIMPLE MACHINE LEARNING
-# No sklearn required
-# ============================================================
-
-FEATURE_COLUMNS = [
-    "Age",
-    "Satisfaction_Score",
-    "Annual_Spend",
-    "Visit_Frequency"
-]
-
-
-# Convert categorical columns into numerical values
 gender_map = {
     "Female": 0,
     "Male": 1
@@ -280,7 +201,6 @@ model_df["Factor_Code"] = (
     .fillna(0)
 )
 
-
 FEATURE_COLUMNS = [
     "Age",
     "Satisfaction_Score",
@@ -291,34 +211,31 @@ FEATURE_COLUMNS = [
     "Factor_Code"
 ]
 
-
-X_all = model_df[FEATURE_COLUMNS].astype(float).values
-y_all = model_df["Group"].values
+X = model_df[FEATURE_COLUMNS].astype(float).values
+y = model_df["Group"].values
 
 classes = sorted(
     model_df["Group"].unique()
 )
 
+feature_min = X.min(axis=0)
+feature_max = X.max(axis=0)
 
-# ============================================================
-# NORMALIZATION
-# ============================================================
+feature_range = (
+    feature_max - feature_min
+)
 
-feature_min = X_all.min(axis=0)
-
-feature_max = X_all.max(axis=0)
-
-feature_range = feature_max - feature_min
-
-feature_range[feature_range == 0] = 1
+feature_range[
+    feature_range == 0
+] = 1
 
 X_normalized = (
-    X_all - feature_min
+    X - feature_min
 ) / feature_range
 
 
 # ============================================================
-# TRAIN / TEST SPLIT
+# TRAIN / TEST
 # ============================================================
 
 rng = np.random.default_rng(42)
@@ -327,22 +244,18 @@ indices = np.arange(len(df))
 
 rng.shuffle(indices)
 
-split_point = int(
+split = int(
     len(indices) * 0.80
 )
 
-train_indices = indices[:split_point]
-
-test_indices = indices[split_point:]
-
+train_indices = indices[:split]
+test_indices = indices[split:]
 
 X_train = X_normalized[train_indices]
-
 X_test = X_normalized[test_indices]
 
-y_train = y_all[train_indices]
-
-y_test = y_all[test_indices]
+y_train = y[train_indices]
+y_test = y[test_indices]
 
 
 # ============================================================
@@ -353,13 +266,12 @@ centroids = {}
 
 for cls in classes:
 
-    class_rows = X_train[
+    rows = X_train[
         y_train == cls
     ]
 
-    if len(class_rows) > 0:
-
-        centroids[cls] = class_rows.mean(
+    if len(rows) > 0:
+        centroids[cls] = rows.mean(
             axis=0
         )
 
@@ -372,37 +284,28 @@ def predict_one(row):
 
         if cls in centroids:
 
-            distance = np.linalg.norm(
+            distances[cls] = np.linalg.norm(
                 row - centroids[cls]
             )
 
-            distances[cls] = distance
-
-    sorted_classes = sorted(
+    ordered = sorted(
         distances,
         key=distances.get
     )
 
-    predicted = sorted_classes[0]
+    prediction = ordered[0]
 
-    # Convert distance to confidence
-    dists = np.array(
+    values = np.array(
         list(distances.values())
     )
 
-    if len(dists) > 1:
+    inverse = 1 / (
+        values + 0.0001
+    )
 
-        inverse = 1 / (
-            dists + 0.0001
-        )
-
-        probabilities = (
-            inverse / inverse.sum()
-        )
-
-    else:
-
-        probabilities = np.array([1.0])
+    probabilities = (
+        inverse / inverse.sum()
+    )
 
     probability_dict = dict(
         zip(
@@ -411,32 +314,18 @@ def predict_one(row):
         )
     )
 
-    return predicted, probability_dict
+    return prediction, probability_dict
 
-
-# ============================================================
-# TEST MODEL
-# ============================================================
 
 predictions = []
 
-probability_list = []
-
 for row in X_test:
 
-    prediction, probs = predict_one(row)
+    prediction, _ = predict_one(row)
 
     predictions.append(prediction)
 
-    probability_list.append(probs)
-
-
 predictions = np.array(predictions)
-
-
-# ============================================================
-# ACCURACY
-# ============================================================
 
 accuracy = np.mean(
     predictions == y_test
@@ -452,7 +341,6 @@ report_rows = []
 for cls in classes:
 
     actual = y_test == cls
-
     predicted = predictions == cls
 
     tp = np.sum(
@@ -471,38 +359,54 @@ for cls in classes:
 
     precision = (
         tp / (tp + fp)
-        if (tp + fp) > 0
+        if tp + fp > 0
         else 0
     )
 
     recall = (
         tp / (tp + fn)
-        if (tp + fn) > 0
+        if tp + fn > 0
         else 0
     )
 
     f1 = (
         2 * precision * recall
         / (precision + recall)
-        if (precision + recall) > 0
+        if precision + recall > 0
         else 0
     )
 
     report_rows.append({
-        "precision": round(precision, 3),
-        "recall": round(recall, 3),
-        "f1-score": round(f1, 3),
-        "support": int(support)
+
+        "precision":
+            round(precision, 3),
+
+        "recall":
+            round(recall, 3),
+
+        "f1-score":
+            round(f1, 3),
+
+        "support":
+            int(support)
     })
 
 
-# Accuracy row
 report_rows.append({
-    "precision": round(accuracy, 3),
-    "recall": round(accuracy, 3),
-    "f1-score": round(accuracy, 3),
-    "support": len(y_test)
+
+    "precision":
+        round(accuracy, 3),
+
+    "recall":
+        round(accuracy, 3),
+
+    "f1-score":
+        round(accuracy, 3),
+
+    "support":
+        len(y_test)
 })
+
 
 report_df = pd.DataFrame(
     report_rows,
@@ -524,18 +428,14 @@ for actual, predicted in zip(
     predictions
 ):
 
-    actual_index = classes.index(actual)
+    a = classes.index(actual)
+    p = classes.index(predicted)
 
-    predicted_index = classes.index(predicted)
-
-    cm[
-        actual_index,
-        predicted_index
-    ] += 1
+    cm[a, p] += 1
 
 
 # ============================================================
-# LIQUID GLASS CSS
+# 🍎 MAC / iOS LIQUID GLASS
 # ============================================================
 
 st.markdown(
@@ -543,7 +443,7 @@ st.markdown(
 <style>
 
 /* ============================================================
-   GLOBAL APP
+   BACKGROUND
    ============================================================ */
 
 .stApp {
@@ -551,28 +451,28 @@ st.markdown(
     background:
 
         radial-gradient(
-            circle at 8% 8%,
-            rgba(255,215,0,0.10),
+            circle at 5% 5%,
+            rgba(255, 204, 80, 0.13),
             transparent 28%
         ),
 
         radial-gradient(
-            circle at 92% 15%,
-            rgba(80,120,255,0.12),
+            circle at 95% 10%,
+            rgba(90, 130, 255, 0.18),
             transparent 30%
         ),
 
         radial-gradient(
-            circle at 50% 95%,
-            rgba(0,180,255,0.07),
+            circle at 50% 90%,
+            rgba(0, 180, 255, 0.10),
             transparent 35%
         ),
 
         linear-gradient(
             135deg,
-            #030303 0%,
-            #090d19 48%,
-            #030303 100%
+            #020305 0%,
+            #080c16 45%,
+            #020305 100%
         );
 
     background-attachment: fixed;
@@ -580,49 +480,124 @@ st.markdown(
 
 
 /* ============================================================
-   STREAMLIT BACKGROUND
+   STREAMLIT
    ============================================================ */
 
 [data-testid="stAppViewContainer"] {
-
-    background:
-        transparent !important;
+    background: transparent !important;
 }
 
 [data-testid="stHeader"] {
-
-    background:
-        transparent !important;
+    background: transparent !important;
 }
 
 [data-testid="stToolbar"] {
-
-    background:
-        transparent !important;
+    background: transparent !important;
 }
 
 .main {
-
-    background:
-        transparent !important;
+    background: transparent !important;
 }
 
 .main .block-container {
 
-    max-width:
-        1500px;
+    max-width: 1500px;
 
-    padding-top:
-        1.5rem;
+    padding-top: 1.5rem;
 
-    padding-bottom:
-        3rem;
+    padding-bottom: 4rem;
 
-    padding-left:
-        3rem;
+    padding-left: 3rem;
 
-    padding-right:
-        3rem;
+    padding-right: 3rem;
+}
+
+
+/* ============================================================
+   APPLE-STYLE LIGHT REFLECTION
+   ============================================================ */
+
+.main-title,
+[data-testid="stMetric"],
+div[data-testid="stPlotlyChart"],
+.prediction-card,
+.footer-box,
+div[data-testid="stDataFrame"] {
+
+    position: relative;
+
+    overflow: hidden;
+}
+
+
+/* TOP EDGE LIGHT */
+
+.main-title::before,
+[data-testid="stMetric"]::before,
+div[data-testid="stPlotlyChart"]::before,
+.prediction-card::before,
+.footer-box::before {
+
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    left: 4%;
+
+    width: 92%;
+    height: 1px;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255,255,255,0.70),
+            rgba(255,255,255,0.25),
+            transparent
+        );
+
+    opacity: 0.85;
+
+    pointer-events: none;
+}
+
+
+/* SOFT GLASS GLOW */
+
+.main-title::after,
+[data-testid="stMetric"]::after,
+div[data-testid="stPlotlyChart"]::after,
+.prediction-card::after,
+.footer-box::after {
+
+    content: "";
+
+    position: absolute;
+
+    top: -80%;
+
+    left: -40%;
+
+    width: 70%;
+
+    height: 220%;
+
+    background:
+        linear-gradient(
+            105deg,
+            transparent 35%,
+            rgba(255,255,255,0.10) 47%,
+            rgba(255,255,255,0.025) 52%,
+            transparent 65%
+        );
+
+    transform:
+        rotate(8deg);
+
+    pointer-events: none;
+
+    opacity: 0.55;
 }
 
 
@@ -632,92 +607,101 @@ st.markdown(
 
 .main-title {
 
-    text-align:
-        center;
+    text-align: center;
 
     font-size:
         clamp(2rem, 5vw, 4rem);
 
-    font-weight:
-        800;
+    font-weight: 800;
 
-    letter-spacing:
-        3px;
+    letter-spacing: 3px;
 
-    color:
-        #ffffff;
+    color: #ffffff;
 
-    padding:
-        28px 20px;
+    padding: 30px 20px;
 
-    margin-bottom:
-        28px;
+    margin-bottom: 30px;
 
-    border-radius:
-        28px;
+    border-radius: 30px;
 
     background:
+
         linear-gradient(
-            135deg,
-            rgba(255,255,255,0.12),
-            rgba(255,255,255,0.035)
+            145deg,
+            rgba(255,255,255,0.14),
+            rgba(255,255,255,0.055) 40%,
+            rgba(255,255,255,0.025)
         );
 
     border:
         1px solid
-        rgba(255,255,255,0.20);
+        rgba(255,255,255,0.22);
 
     box-shadow:
 
-        0 15px 45px
-        rgba(0,0,0,0.40),
+        0 25px 70px
+        rgba(0,0,0,0.50),
 
-        inset 0 1px 1px
-        rgba(255,255,255,0.25),
+        inset 0 1px 0
+        rgba(255,255,255,0.35),
 
-        0 0 35px
-        rgba(255,215,0,0.08);
+        inset 0 -1px 0
+        rgba(255,255,255,0.06),
+
+        0 0 45px
+        rgba(120,150,255,0.07);
 
     backdrop-filter:
-        blur(25px);
+        blur(35px)
+        saturate(160%);
 
     -webkit-backdrop-filter:
-        blur(25px);
+        blur(35px)
+        saturate(160%);
 }
 
 
 /* ============================================================
-   SECTION TITLES
+   SECTION TITLE
    ============================================================ */
 
 .section-title {
 
-    font-size:
-        1.45rem;
+    position: relative;
 
-    font-weight:
-        700;
+    font-size: 1.45rem;
 
-    color:
-        #ffffff;
+    font-weight: 700;
 
-    margin-top:
-        28px;
+    color: #ffffff;
 
-    margin-bottom:
-        14px;
+    margin-top: 30px;
 
-    padding-left:
-        14px;
+    margin-bottom: 15px;
+
+    padding: 14px 18px;
+
+    border-radius: 16px;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(255,255,255,0.07),
+            transparent
+        );
 
     border-left:
         3px solid #FFD700;
+
+    box-shadow:
+        inset 0 1px 0
+        rgba(255,255,255,0.08);
 }
 
 .section-caption {
 
     color:
-        rgba(255,255,255,0.45);
+        rgba(255,255,255,0.48);
 
     font-size:
         0.75rem;
@@ -726,78 +710,88 @@ st.markdown(
         700;
 
     letter-spacing:
-        2px;
+        2.5px;
 
-    margin-bottom:
-        14px;
+    margin:
+        22px 0 14px 4px;
 }
 
 
 /* ============================================================
-   METRIC CARDS
+   METRIC GLASS
    ============================================================ */
 
 [data-testid="stMetric"] {
 
-    min-height:
-        155px;
+    min-height: 165px;
 
-    padding:
-        22px !important;
+    padding: 24px !important;
 
-    border-radius:
-        24px;
+    border-radius: 27px;
 
     background:
+
         linear-gradient(
             145deg,
-            rgba(255,255,255,0.12),
-            rgba(255,255,255,0.035)
+            rgba(255,255,255,0.15),
+            rgba(255,255,255,0.065) 45%,
+            rgba(255,255,255,0.025)
         ) !important;
 
     border:
         1px solid
-        rgba(255,255,255,0.16);
+        rgba(255,255,255,0.20);
 
     box-shadow:
 
-        0 15px 40px
-        rgba(0,0,0,0.35),
+        0 20px 55px
+        rgba(0,0,0,0.42),
 
-        inset 0 1px 1px
-        rgba(255,255,255,0.18);
+        inset 0 1px 0
+        rgba(255,255,255,0.28),
+
+        inset 0 -1px 0
+        rgba(255,255,255,0.05);
 
     backdrop-filter:
-        blur(25px);
+        blur(32px)
+        saturate(155%);
 
     -webkit-backdrop-filter:
-        blur(25px);
+        blur(32px)
+        saturate(155%);
 
     transition:
-        all 0.25s ease;
+        transform 0.3s ease,
+        box-shadow 0.3s ease,
+        border-color 0.3s ease;
 }
 
 [data-testid="stMetric"]:hover {
 
     transform:
-        translateY(-5px);
+        translateY(-6px);
 
     border-color:
-        rgba(255,215,0,0.40);
+        rgba(255,255,255,0.34);
 
     box-shadow:
 
-        0 20px 45px
-        rgba(0,0,0,0.45),
+        0 28px 65px
+        rgba(0,0,0,0.52),
 
-        0 0 25px
-        rgba(255,215,0,0.08);
+        0 0 30px
+        rgba(120,150,255,0.08),
+
+        inset 0 1px 0
+        rgba(255,255,255,0.38);
 }
 
 [data-testid="stMetricLabel"] {
 
     color:
-        rgba(255,255,255,0.52) !important;
+        rgba(255,255,255,0.55)
+        !important;
 
     font-size:
         0.75rem !important;
@@ -806,7 +800,7 @@ st.markdown(
         700 !important;
 
     letter-spacing:
-        1.5px !important;
+        1.6px !important;
 }
 
 [data-testid="stMetricValue"] {
@@ -815,10 +809,14 @@ st.markdown(
         #ffffff !important;
 
     font-size:
-        2.2rem !important;
+        2.3rem !important;
 
     font-weight:
-        750 !important;
+        800 !important;
+
+    text-shadow:
+        0 2px 15px
+        rgba(255,255,255,0.15);
 }
 
 
@@ -829,47 +827,55 @@ st.markdown(
 div[data-testid="stPlotlyChart"] {
 
     background:
+
         linear-gradient(
             145deg,
-            rgba(255,255,255,0.075),
-            rgba(255,255,255,0.025)
+            rgba(255,255,255,0.115),
+            rgba(255,255,255,0.045) 45%,
+            rgba(255,255,255,0.018)
         ) !important;
 
     border:
         1px solid
-        rgba(255,255,255,0.14);
+        rgba(255,255,255,0.18);
 
     border-radius:
-        24px;
+        27px;
 
     padding:
-        8px;
+        10px;
 
     box-shadow:
 
-        0 12px 38px
-        rgba(0,0,0,0.35),
+        0 20px 55px
+        rgba(0,0,0,0.40),
 
-        inset 0 1px 1px
-        rgba(255,255,255,0.12);
+        inset 0 1px 0
+        rgba(255,255,255,0.25),
+
+        inset 0 -1px 0
+        rgba(255,255,255,0.05);
 
     backdrop-filter:
-        blur(20px);
+        blur(30px)
+        saturate(150%);
 
     -webkit-backdrop-filter:
-        blur(20px);
+        blur(30px)
+        saturate(150%);
 
-    overflow:
-        hidden;
-
-    margin-bottom:
-        18px;
+    transition:
+        transform 0.3s ease,
+        border-color 0.3s ease;
 }
 
-div[data-testid="stPlotlyChart"] iframe {
+div[data-testid="stPlotlyChart"]:hover {
 
-    background:
-        transparent !important;
+    transform:
+        translateY(-3px);
+
+    border-color:
+        rgba(255,255,255,0.28);
 }
 
 
@@ -879,34 +885,42 @@ div[data-testid="stPlotlyChart"] iframe {
 
 div[data-baseweb="select"] > div {
 
+    min-height: 50px;
+
     background:
-        rgba(255,255,255,0.07)
-        !important;
+
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,0.13),
+            rgba(255,255,255,0.045)
+        ) !important;
 
     border:
         1px solid
-        rgba(255,255,255,0.18)
+        rgba(255,255,255,0.20)
         !important;
 
     border-radius:
-        16px !important;
+        17px !important;
 
     color:
         white !important;
 
-    backdrop-filter:
-        blur(20px);
-
-    -webkit-backdrop-filter:
-        blur(20px);
-
     box-shadow:
 
-        inset 0 1px 1px
-        rgba(255,255,255,0.15),
+        inset 0 1px 0
+        rgba(255,255,255,0.22),
 
-        0 5px 20px
-        rgba(0,0,0,0.25);
+        0 10px 30px
+        rgba(0,0,0,0.30);
+
+    backdrop-filter:
+        blur(25px)
+        saturate(160%);
+
+    -webkit-backdrop-filter:
+        blur(25px)
+        saturate(160%);
 }
 
 div[data-baseweb="select"] span {
@@ -918,7 +932,7 @@ div[data-baseweb="select"] span {
 div[data-baseweb="popover"] {
 
     background:
-        rgba(10,15,28,0.95)
+        rgba(15,18,28,0.92)
         !important;
 
     border:
@@ -927,10 +941,10 @@ div[data-baseweb="popover"] {
         !important;
 
     border-radius:
-        16px !important;
+        18px !important;
 
     backdrop-filter:
-        blur(25px);
+        blur(30px);
 }
 
 
@@ -940,23 +954,21 @@ div[data-baseweb="popover"] {
 
 .stButton > button {
 
-    width:
-        100%;
+    width: 100%;
 
-    min-height:
-        48px;
+    min-height: 52px;
 
-    border-radius:
-        16px;
+    border-radius: 18px;
 
     border:
         1px solid
-        rgba(255,255,255,0.20);
+        rgba(255,255,255,0.22);
 
     background:
+
         linear-gradient(
-            135deg,
-            rgba(255,255,255,0.14),
+            145deg,
+            rgba(255,255,255,0.15),
             rgba(255,255,255,0.045)
         );
 
@@ -969,19 +981,21 @@ div[data-baseweb="popover"] {
     letter-spacing:
         0.5px;
 
-    backdrop-filter:
-        blur(20px);
-
-    -webkit-backdrop-filter:
-        blur(20px);
-
     box-shadow:
 
-        0 8px 25px
-        rgba(0,0,0,0.30),
+        0 12px 35px
+        rgba(0,0,0,0.35),
 
-        inset 0 1px 1px
-        rgba(255,255,255,0.20);
+        inset 0 1px 0
+        rgba(255,255,255,0.28);
+
+    backdrop-filter:
+        blur(25px)
+        saturate(160%);
+
+    -webkit-backdrop-filter:
+        blur(25px)
+        saturate(160%);
 
     transition:
         all 0.25s ease;
@@ -996,15 +1010,18 @@ div[data-baseweb="popover"] {
         rgba(255,215,0,0.65);
 
     transform:
-        translateY(-2px);
+        translateY(-3px);
 
     box-shadow:
 
-        0 10px 30px
-        rgba(0,0,0,0.40),
+        0 18px 40px
+        rgba(0,0,0,0.45),
 
-        0 0 25px
-        rgba(255,215,0,0.12);
+        0 0 30px
+        rgba(255,215,0,0.10),
+
+        inset 0 1px 0
+        rgba(255,255,255,0.35);
 }
 
 
@@ -1015,18 +1032,25 @@ div[data-baseweb="popover"] {
 div[data-testid="stDataFrame"] {
 
     border-radius:
-        20px;
+        24px;
 
     overflow:
         hidden;
 
     border:
         1px solid
-        rgba(255,255,255,0.15);
+        rgba(255,255,255,0.18);
 
     box-shadow:
-        0 10px 35px
-        rgba(0,0,0,0.35);
+
+        0 20px 55px
+        rgba(0,0,0,0.42),
+
+        inset 0 1px 0
+        rgba(255,255,255,0.20);
+
+    backdrop-filter:
+        blur(25px);
 }
 
 
@@ -1040,41 +1064,42 @@ div[data-testid="stDataFrame"] {
         center;
 
     padding:
-        25px;
+        30px;
 
     border-radius:
-        24px;
+        28px;
 
     background:
+
         linear-gradient(
             145deg,
-            rgba(255,215,0,0.13),
-            rgba(255,255,255,0.035)
+            rgba(255,215,0,0.14),
+            rgba(255,255,255,0.065) 45%,
+            rgba(255,255,255,0.025)
         );
 
     border:
         1px solid
-        rgba(255,215,0,0.35);
+        rgba(255,215,0,0.38);
 
     box-shadow:
 
-        0 15px 40px
-        rgba(0,0,0,0.40),
+        0 25px 65px
+        rgba(0,0,0,0.48),
 
-        0 0 30px
-        rgba(255,215,0,0.08),
+        0 0 45px
+        rgba(255,215,0,0.09),
 
-        inset 0 1px 1px
-        rgba(255,255,255,0.18);
+        inset 0 1px 0
+        rgba(255,255,255,0.30);
 
     backdrop-filter:
-        blur(25px);
+        blur(35px)
+        saturate(170%);
 
     -webkit-backdrop-filter:
-        blur(25px);
-
-    margin:
-        18px 0;
+        blur(35px)
+        saturate(170%);
 }
 
 
@@ -1097,34 +1122,41 @@ div[data-testid="stDataFrame"] {
         2px;
 
     padding:
-        22px;
+        23px;
 
     margin-top:
-        35px;
-
-    margin-bottom:
-        10px;
+        40px;
 
     border-radius:
-        20px;
+        22px;
 
     background:
+
         linear-gradient(
-            135deg,
-            rgba(255,255,255,0.08),
-            rgba(255,255,255,0.025)
+            145deg,
+            rgba(255,255,255,0.10),
+            rgba(255,255,255,0.035)
         );
 
     border:
         1px solid
-        rgba(255,255,255,0.12);
+        rgba(255,255,255,0.15);
 
     box-shadow:
-        inset 0 1px 1px
-        rgba(255,255,255,0.12);
+
+        0 15px 40px
+        rgba(0,0,0,0.35),
+
+        inset 0 1px 0
+        rgba(255,255,255,0.22);
 
     backdrop-filter:
-        blur(20px);
+        blur(28px)
+        saturate(150%);
+
+    -webkit-backdrop-filter:
+        blur(28px)
+        saturate(150%);
 }
 
 
@@ -1149,7 +1181,7 @@ div[data-testid="stDataFrame"] {
     .main-title {
 
         font-size:
-            1.65rem;
+            1.55rem;
 
         letter-spacing:
             1.5px;
@@ -1158,37 +1190,31 @@ div[data-testid="stDataFrame"] {
             25px 14px;
 
         border-radius:
-            22px;
-    }
-
-    .section-title {
-
-        font-size:
-            1.2rem;
+            24px;
     }
 
     [data-testid="stMetric"] {
 
         min-height:
-            135px;
+            140px;
 
         padding:
-            17px !important;
+            18px !important;
 
         border-radius:
-            20px;
+            23px;
     }
 
     [data-testid="stMetricValue"] {
 
         font-size:
-            1.7rem !important;
+            1.75rem !important;
     }
 
     div[data-testid="stPlotlyChart"] {
 
         border-radius:
-            20px;
+            23px;
 
         padding:
             3px;
@@ -1202,15 +1228,16 @@ div[data-testid="stDataFrame"] {
         letter-spacing:
             1.2px;
     }
-
 }
 
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True
+)
 
 
 # ============================================================
-# CLEAN HEADER
+# HEADER
 # ============================================================
 
 st.markdown(
@@ -1250,29 +1277,29 @@ metric1, metric2, metric3 = st.columns(
 with metric1:
 
     st.metric(
-        label="👥  TOTAL CUSTOMERS",
-        value=f"{len(df):,}"
+        "👥  TOTAL CUSTOMERS",
+        f"{len(df):,}"
     )
 
 
 with metric2:
 
     st.metric(
-        label="◈  CUSTOMER SEGMENTS",
-        value=df["Group"].nunique()
+        "◈  CUSTOMER SEGMENTS",
+        df["Group"].nunique()
     )
 
 
 with metric3:
 
     st.metric(
-        label="⚡  MODEL ACCURACY",
-        value=f"{accuracy:.2%}"
+        "⚡  MODEL ACCURACY",
+        f"{accuracy:.2%}"
     )
 
 
 # ============================================================
-# PORTFOLIO ANALYSIS
+# PORTFOLIO
 # ============================================================
 
 st.markdown(
@@ -1286,7 +1313,7 @@ st.markdown(
 
 
 # ============================================================
-# CHART 1
+# CHART DATA
 # ============================================================
 
 factor_data = (
@@ -1302,38 +1329,6 @@ factor_data = (
 )
 
 
-fig1 = px.bar(
-    factor_data,
-    x="Satisfaction_Factor",
-    y="Satisfaction_Score",
-    color="Satisfaction_Score",
-    color_continuous_scale="Cividis"
-)
-
-
-# ============================================================
-# CHART 2
-# ============================================================
-
-fig2 = px.pie(
-    factor_data,
-    names="Satisfaction_Factor",
-    values="Satisfaction_Score",
-    hole=0.55
-)
-
-
-fig2.update_traces(
-    textfont=dict(
-        color="white"
-    )
-)
-
-
-# ============================================================
-# CHART 3
-# ============================================================
-
 age_data = (
     df.groupby(
         "Age"
@@ -1343,11 +1338,59 @@ age_data = (
 )
 
 
-fig3 = px.line(
-    age_data,
-    x="Age",
+# ============================================================
+# CHART 1
+# ============================================================
+
+fig1 = px.bar(
+
+    factor_data,
+
+    x="Satisfaction_Factor",
+
     y="Satisfaction_Score",
-    markers=True
+
+    color="Satisfaction_Score",
+
+    color_continuous_scale="Cividis",
+
+    title="Factor Impact"
+)
+
+
+# ============================================================
+# CHART 2
+# ============================================================
+
+fig2 = px.pie(
+
+    factor_data,
+
+    names="Satisfaction_Factor",
+
+    values="Satisfaction_Score",
+
+    hole=0.58,
+
+    title="Score Distribution"
+)
+
+
+# ============================================================
+# CHART 3
+# ============================================================
+
+fig3 = px.line(
+
+    age_data,
+
+    x="Age",
+
+    y="Satisfaction_Score",
+
+    markers=True,
+
+    title="Age Trend"
 )
 
 
@@ -1356,16 +1399,18 @@ fig3 = px.line(
 # ============================================================
 
 fig4 = px.histogram(
+
     df,
-    x="Satisfaction_Score"
+
+    x="Satisfaction_Score",
+
+    title="Score Frequency"
 )
 
 
 fig4.update_traces(
-    marker=dict(
-        color=GOLD,
-        opacity=0.78
-    )
+    marker_color="#FFD700",
+    opacity=0.78
 )
 
 
@@ -1374,15 +1419,17 @@ fig4.update_traces(
 # ============================================================
 
 fig5 = px.box(
+
     df,
-    y="Satisfaction_Score"
+
+    y="Satisfaction_Score",
+
+    title="Statistical Range"
 )
 
 
 fig5.update_traces(
-    marker=dict(
-        color=GOLD
-    )
+    marker_color="#FFD700"
 )
 
 
@@ -1391,19 +1438,26 @@ fig5.update_traces(
 # ============================================================
 
 fig6 = px.scatter(
+
     df,
+
     x="Age",
+
     y="Satisfaction_Score",
+
     color="Loyalty_Level",
-    symbol="Gender"
+
+    symbol="Gender",
+
+    title="Demographic Analysis"
 )
 
 
 # ============================================================
-# GLASS CHART FUNCTION
+# CHART STYLE
 # ============================================================
 
-def make_glass_chart(fig):
+def style_chart(fig):
 
     fig.update_layout(
 
@@ -1418,61 +1472,70 @@ def make_glass_chart(fig):
                 "rgba(255,255,255,0.88)"
         ),
 
+        title=dict(
+            font=dict(
+                size=18,
+                color="#FFFFFF"
+            )
+        ),
+
         legend=dict(
             bgcolor=
                 "rgba(0,0,0,0)",
 
             font=dict(
                 color=
-                    "rgba(255,255,255,0.82)"
+                    "rgba(255,255,255,0.80)"
             )
         ),
 
         margin=dict(
             l=45,
             r=30,
-            t=55,
+            t=65,
             b=45
         )
     )
 
     fig.update_xaxes(
 
-        color=
-            "rgba(255,255,255,0.72)",
-
         gridcolor=
             "rgba(255,255,255,0.07)",
 
         zerolinecolor=
-            "rgba(255,255,255,0.10)"
+            "rgba(255,255,255,0.10)",
+
+        color=
+            "rgba(255,255,255,0.72)"
     )
 
     fig.update_yaxes(
 
-        color=
-            "rgba(255,255,255,0.72)",
-
         gridcolor=
             "rgba(255,255,255,0.07)",
 
         zerolinecolor=
-            "rgba(255,255,255,0.10)"
+            "rgba(255,255,255,0.10)",
+
+        color=
+            "rgba(255,255,255,0.72)"
     )
 
     return fig
 
 
-fig1 = make_glass_chart(fig1)
-fig2 = make_glass_chart(fig2)
-fig3 = make_glass_chart(fig3)
-fig4 = make_glass_chart(fig4)
-fig5 = make_glass_chart(fig5)
-fig6 = make_glass_chart(fig6)
+figures = [
+    style_chart(fig1),
+    style_chart(fig2),
+    style_chart(fig3),
+    style_chart(fig4),
+    style_chart(fig5),
+    style_chart(fig6)
+]
 
 
 # ============================================================
-# COMBINE CHARTS
+# COMBINED DASHBOARD
 # ============================================================
 
 dashboard = make_subplots(
@@ -1487,7 +1550,7 @@ dashboard = make_subplots(
         "Age Trend",
         "Score Frequency",
         "Statistical Range",
-        "Demographic Map"
+        "Demographic Analysis"
     ],
 
     specs=[
@@ -1495,12 +1558,10 @@ dashboard = make_subplots(
             {"type": "xy"},
             {"type": "domain"}
         ],
-
         [
             {"type": "xy"},
             {"type": "xy"}
         ],
-
         [
             {"type": "xy"},
             {"type": "xy"}
@@ -1509,25 +1570,10 @@ dashboard = make_subplots(
 )
 
 
-figures = [
-    fig1,
-    fig2,
-    fig3,
-    fig4,
-    fig5,
-    fig6
-]
-
-
 for i, fig in enumerate(figures):
 
-    row = (
-        i // 2
-    ) + 1
-
-    col = (
-        i % 2
-    ) + 1
+    row = i // 2 + 1
+    col = i % 2 + 1
 
     for trace in fig.data:
 
@@ -1537,10 +1583,6 @@ for i, fig in enumerate(figures):
             col=col
         )
 
-
-# ============================================================
-# DASHBOARD STYLE
-# ============================================================
 
 dashboard.update_layout(
 
@@ -1552,60 +1594,32 @@ dashboard.update_layout(
     plot_bgcolor=
         "rgba(0,0,0,0)",
 
-    title=dict(
-        text=
-            "Customer Portfolio",
-
-        font=dict(
-            color="#FFFFFF",
-            size=22
-        )
-    ),
-
     font=dict(
         color=
             "rgba(255,255,255,0.88)"
     ),
 
-    legend=dict(
-        bgcolor=
-            "rgba(0,0,0,0)"
-    ),
-
     margin=dict(
         l=40,
         r=30,
-        t=80,
+        t=75,
         b=40
-    )
+    ),
+
+    showlegend=True
 )
 
 
 dashboard.update_xaxes(
-
-    showgrid=True,
-
     gridcolor=
         "rgba(255,255,255,0.07)",
-
-    zerolinecolor=
-        "rgba(255,255,255,0.10)",
-
     color=
         "rgba(255,255,255,0.72)"
 )
 
-
 dashboard.update_yaxes(
-
-    showgrid=True,
-
     gridcolor=
         "rgba(255,255,255,0.07)",
-
-    zerolinecolor=
-        "rgba(255,255,255,0.10)",
-
     color=
         "rgba(255,255,255,0.72)"
 )
@@ -1615,8 +1629,8 @@ st.plotly_chart(
     dashboard,
     use_container_width=True,
     config={
-        "displayModeBar": True,
-        "responsive": True
+        "responsive": True,
+        "displayModeBar": True
     }
 )
 
@@ -1641,7 +1655,6 @@ seg_counts = (
     .reset_index()
 )
 
-
 seg_counts.columns = [
     "Group",
     "Count"
@@ -1649,15 +1662,20 @@ seg_counts.columns = [
 
 
 fig_seg = px.bar(
+
     seg_counts,
+
     x="Group",
+
     y="Count",
+
     color="Group",
+
     title="Customers per Segment"
 )
 
 
-fig_seg = make_glass_chart(
+fig_seg = style_chart(
     fig_seg
 )
 
@@ -1682,39 +1700,51 @@ st.markdown(
 )
 
 
-# Feature importance based on variance
 feature_importance = []
 
-for i, feature in enumerate(FEATURE_COLUMNS):
-
-    importance = np.var(
-        X_normalized[:, i]
-    )
+for i, feature in enumerate(
+    FEATURE_COLUMNS
+):
 
     feature_importance.append({
-        "Feature": feature,
-        "Importance": importance
+
+        "Feature":
+            feature,
+
+        "Importance":
+            np.var(
+                X_normalized[:, i]
+            )
     })
 
 
-importances = (
-    pd.DataFrame(feature_importance)
+importance_df = (
+    pd.DataFrame(
+        feature_importance
+    )
     .sort_values(
         "Importance",
         ascending=False
     )
-    .head(10)
 )
 
 
 fig_imp = px.bar(
-    importances,
+
+    importance_df,
+
     x="Importance",
+
     y="Feature",
+
     orientation="h",
+
     color="Importance",
+
     color_continuous_scale="Cividis",
-    title="Top Features Driving Segment Prediction"
+
+    title=
+        "Features Driving Segment Prediction"
 )
 
 
@@ -1725,7 +1755,7 @@ fig_imp.update_layout(
 )
 
 
-fig_imp = make_glass_chart(
+fig_imp = style_chart(
     fig_imp
 )
 
@@ -1758,7 +1788,8 @@ fig_cm = px.imshow(
         "color": "Count"
     },
 
-    title="Prediction Accuracy Matrix"
+    title=
+        "Prediction Accuracy Matrix"
 )
 
 
@@ -1799,8 +1830,7 @@ st.markdown(
 
 st.dataframe(
     report_df,
-    use_container_width=True,
-    hide_index=False
+    use_container_width=True
 )
 
 
@@ -1818,7 +1848,7 @@ st.markdown(
 )
 
 
-selected_customer_id = st.selectbox(
+selected_customer = st.selectbox(
 
     "Select Customer",
 
@@ -1835,7 +1865,7 @@ if st.button(
 
     selected_row = model_df[
         model_df["Customer_ID"]
-        == selected_customer_id
+        == selected_customer
     ].iloc[0]
 
 
@@ -1848,14 +1878,14 @@ if st.button(
     )
 
 
-    input_normalized = (
+    normalized_input = (
         input_values - feature_min
     ) / feature_range
 
 
-    predicted_label, probabilities = (
+    predicted_segment, probabilities = (
         predict_one(
-            input_normalized
+            normalized_input
         )
     )
 
@@ -1865,36 +1895,35 @@ if st.button(
     )
 
 
-    # ========================================================
-    # PREDICTION CARD
-    # ========================================================
-
     st.markdown(
         f"""
         <div class="prediction-card">
 
             <div style="
-                color: rgba(255,255,255,0.50);
-                font-size: 0.75rem;
-                letter-spacing: 2px;
-                font-weight: 700;
-                margin-bottom: 10px;
+                color:rgba(255,255,255,0.50);
+                font-size:0.75rem;
+                font-weight:700;
+                letter-spacing:2px;
+                margin-bottom:12px;
             ">
                 PREDICTED CUSTOMER SEGMENT
             </div>
 
             <div style="
-                color: #FFD700;
-                font-size: 2rem;
-                font-weight: 800;
-                margin-bottom: 8px;
+                color:#FFD700;
+                font-size:2.2rem;
+                font-weight:800;
+                text-shadow:
+                    0 0 25px
+                    rgba(255,215,0,0.25);
             ">
-                {predicted_label}
+                {predicted_segment}
             </div>
 
             <div style="
-                color: rgba(255,255,255,0.70);
-                font-size: 1rem;
+                color:rgba(255,255,255,0.72);
+                margin-top:10px;
+                font-size:1rem;
             ">
                 Confidence: {confidence:.1%}
             </div>
@@ -1905,11 +1934,7 @@ if st.button(
     )
 
 
-    # ========================================================
-    # PROBABILITY CHART
-    # ========================================================
-
-    prob_df = pd.DataFrame({
+    probability_df = pd.DataFrame({
 
         "Segment":
             list(probabilities.keys()),
@@ -1919,8 +1944,8 @@ if st.button(
     })
 
 
-    prob_df = (
-        prob_df
+    probability_df = (
+        probability_df
         .sort_values(
             "Probability",
             ascending=False
@@ -1930,7 +1955,7 @@ if st.button(
 
     fig_prob = px.bar(
 
-        prob_df,
+        probability_df,
 
         x="Segment",
 
@@ -1943,7 +1968,7 @@ if st.button(
     )
 
 
-    fig_prob = make_glass_chart(
+    fig_prob = style_chart(
         fig_prob
     )
 
@@ -1955,7 +1980,7 @@ if st.button(
 
 
 # ============================================================
-# CLEAN FOOTER
+# FOOTER
 # ============================================================
 
 st.markdown(
