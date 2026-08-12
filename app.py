@@ -3,36 +3,27 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-from plotly.subplots import make_subplots
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
     confusion_matrix
 )
-from sklearn.preprocessing import LabelEncoder
 
 
 # ============================================================
-# PAGE CONFIGURATION
+# PAGE CONFIG
 # ============================================================
 
 st.set_page_config(
-    page_title="Strategic Customer Analytics",
+    page_title="Customer Segmentation Analytics",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
-
-# ============================================================
-# COLORS
-# ============================================================
-
-GOLD = "#FFD700"
-NAVY = "#191970"
 
 
 # ============================================================
@@ -50,16 +41,16 @@ CSV_PATH = os.path.join(
 
 
 # ============================================================
-# SAMPLE DATA GENERATOR
+# LOAD DATA
 # ============================================================
 
-def generate_sample_data(
-    path=CSV_PATH,
-    n=500,
-    seed=42
-):
+if os.path.exists(CSV_PATH):
+    df = pd.read_csv(CSV_PATH)
 
-    rng = np.random.default_rng(seed)
+else:
+    rng = np.random.default_rng(42)
+
+    n = 500
 
     genders = [
         "Male",
@@ -94,119 +85,104 @@ def generate_sample_data(
 
     satisfaction_factor = rng.choice(
         factors,
-        n,
-        p=[
-            0.25,
-            0.25,
-            0.20,
-            0.15,
-            0.15
-        ]
+        n
     )
 
     loyalty_level = rng.choice(
         loyalty_levels,
-        n,
-        p=[
-            0.35,
-            0.30,
-            0.25,
-            0.10
-        ]
+        n
     )
 
-    loyalty_spend_base = {
-
-        "Bronze": 300,
-
-        "Silver": 900,
-
-        "Gold": 2200,
-
+    spend_base = {
+        "Bronze": 400,
+        "Silver": 1000,
+        "Gold": 2500,
         "Platinum": 5000
     }
 
     annual_spend = np.array([
-
         max(
-            20,
+            50,
             rng.normal(
-                loyalty_spend_base[level],
-                loyalty_spend_base[level] * 0.30
+                spend_base[level],
+                spend_base[level] * 0.25
             )
         )
-
         for level in loyalty_level
+    ])
 
-    ]).round(2)
+    annual_spend = np.round(
+        annual_spend,
+        2
+    )
 
     visit_frequency = np.clip(
-
-        (annual_spend / 300)
-        + rng.normal(0, 2, n),
-
-        0.5,
-
+        annual_spend / 350
+        + rng.normal(
+            0,
+            2,
+            n
+        ),
+        1,
         None
+    )
 
-    ).round(1)
+    visit_frequency = np.round(
+        visit_frequency,
+        1
+    )
 
     satisfaction_score = np.clip(
-
         rng.normal(
-            5.5,
-            2.0,
+            6,
+            1.8,
             n
         )
-        + (annual_spend / 2000),
-
+        + annual_spend / 5000,
         1,
-
         10
+    )
 
-    ).round(1)
+    satisfaction_score = np.round(
+        satisfaction_score,
+        1
+    )
 
-    def assign_group(
-        spend,
-        score
+    groups = []
+
+    for spend, score in zip(
+        annual_spend,
+        satisfaction_score
     ):
 
         if score < 4:
+            groups.append(
+                "At Risk"
+            )
 
-            return "At Risk"
+        elif (
+            spend >= 1500
+            and score >= 6
+        ):
+            groups.append(
+                "Settled"
+            )
 
-        elif spend > 1500 and score >= 6:
+        else:
+            groups.append(
+                "Attention Required"
+            )
 
-            return "Settled"
-
-        return "Attention Required"
-
-    group = [
-
-        assign_group(
-            spend,
-            score
-        )
-
-        for spend, score
-        in zip(
-            annual_spend,
-            satisfaction_score
-        )
-    ]
-
-    data = pd.DataFrame({
+    df = pd.DataFrame({
 
         "Customer_ID": [
-            f"CUST{i+1:04d}"
+            f"CUST{i + 1:04d}"
             for i in range(n)
         ],
 
-        "Age":
-            age,
+        "Age": age,
 
-        "Gender":
-            gender,
+        "Gender": gender,
 
         "Satisfaction_Factor":
             satisfaction_factor,
@@ -223,55 +199,42 @@ def generate_sample_data(
         "Visit_Frequency":
             visit_frequency,
 
-        "Group":
-            group
+        "Group": groups
     })
 
-    data.to_csv(
-        path,
+    df.to_csv(
+        CSV_PATH,
         index=False
     )
-
-    return data
-
-
-# ============================================================
-# LOAD DATA
-# ============================================================
-
-df = pd.read_csv(CSV_PATH) if os.path.exists(CSV_PATH) else generate_sample_data()
 
 
 # ============================================================
 # VALIDATE DATA
 # ============================================================
 
-REQUIRED_COLS = {
-
+required_columns = [
     "Customer_ID",
-
-    "Group",
-
-    "Satisfaction_Factor",
-
-    "Satisfaction_Score",
-
     "Age",
-
+    "Gender",
+    "Satisfaction_Factor",
+    "Satisfaction_Score",
     "Loyalty_Level",
+    "Annual_Spend",
+    "Visit_Frequency",
+    "Group"
+]
 
-    "Gender"
-}
+missing_columns = [
+    col
+    for col in required_columns
+    if col not in df.columns
+]
 
-missing = (
-    REQUIRED_COLS
-    - set(df.columns)
-)
-
-if missing:
+if missing_columns:
 
     st.error(
-        f"Missing required columns: {missing}"
+        "Missing required columns: "
+        + ", ".join(missing_columns)
     )
 
     st.stop()
@@ -281,86 +244,50 @@ if missing:
 # MACHINE LEARNING
 # ============================================================
 
-df_encoded = df.copy()
+model_df = df.copy()
 
 
-categorical_cols = (
-    df_encoded
-    .select_dtypes(
-        include=["object"]
-    )
-    .columns
-    .tolist()
-)
+categorical_columns = [
+    "Gender",
+    "Satisfaction_Factor",
+    "Loyalty_Level"
+]
 
 
-for col in [
-    "Customer_ID",
-    "Group"
-]:
-
-    if col in categorical_cols:
-
-        categorical_cols.remove(
-            col
-        )
-
-
-df_encoded = pd.get_dummies(
-
-    df_encoded,
-
-    columns=categorical_cols,
-
+X = pd.get_dummies(
+    model_df.drop(
+        columns=[
+            "Customer_ID",
+            "Group"
+        ]
+    ),
+    columns=categorical_columns,
     drop_first=True
 )
 
 
 label_encoder = LabelEncoder()
 
+y = label_encoder.fit_transform(
+    model_df["Group"]
+)
 
-df_encoded["Group_encoded"] = (
-    label_encoder
-    .fit_transform(
-        df_encoded["Group"]
+
+X_train, X_test, y_train, y_test = (
+    train_test_split(
+        X,
+        y,
+        test_size=0.20,
+        random_state=42,
+        stratify=y
     )
 )
 
 
-X = df_encoded.drop(
-
-    columns=[
-        "Customer_ID",
-        "Group",
-        "Group_encoded"
-    ]
-)
-
-
-y = df_encoded[
-    "Group_encoded"
-]
-
-
-X_train, X_test, y_train, y_test = train_test_split(
-
-    X,
-
-    y,
-
-    test_size=0.20,
-
-    random_state=42,
-
-    stratify=y
-)
-
-
 model = RandomForestClassifier(
-
     n_estimators=200,
-
-    random_state=42
+    random_state=42,
+    max_depth=10
 )
 
 
@@ -381,25 +308,29 @@ accuracy = accuracy_score(
 )
 
 
-report_df = pd.DataFrame(
+# ============================================================
+# CLASSIFICATION REPORT
+# ============================================================
 
-    classification_report(
+report = classification_report(
+    y_test,
+    y_pred,
+    target_names=label_encoder.classes_,
+    output_dict=True,
+    zero_division=0
+)
 
-        y_test,
 
-        y_pred,
+report_df = (
+    pd.DataFrame(report)
+    .transpose()
+    .round(3)
+)
 
-        target_names=
-        label_encoder.classes_,
 
-        output_dict=True,
-
-        zero_division=0
-
-    )
-
-).transpose().round(3)
-
+# ============================================================
+# CONFUSION MATRIX
+# ============================================================
 
 cm = confusion_matrix(
     y_test,
@@ -408,748 +339,643 @@ cm = confusion_matrix(
 
 
 # ============================================================
-# LIQUID GLASS CSS
+# GLASS CSS
 # ============================================================
 
 st.markdown(
     """
-    <style>
+<style>
 
-    /* ======================================================
-       GLOBAL APP
-       ====================================================== */
+html,
+body,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] {
+    background: #030406 !important;
+}
 
-    .stApp {
+.stApp {
 
-        background:
-            radial-gradient(
-                circle at 8% 8%,
-                rgba(255,215,0,0.12),
-                transparent 28%
-            ),
+    background:
 
-            radial-gradient(
-                circle at 92% 15%,
-                rgba(80,120,255,0.14),
-                transparent 30%
-            ),
+        radial-gradient(
+            circle at 5% 5%,
+            rgba(255,215,0,0.12),
+            transparent 28%
+        ),
 
-            radial-gradient(
-                circle at 50% 95%,
-                rgba(0,180,255,0.08),
-                transparent 35%
-            ),
+        radial-gradient(
+            circle at 95% 10%,
+            rgba(70,120,255,0.14),
+            transparent 30%
+        ),
 
-            linear-gradient(
-                135deg,
-                #030303 0%,
-                #090d19 48%,
-                #030303 100%
-            );
+        radial-gradient(
+            circle at 50% 90%,
+            rgba(0,180,255,0.08),
+            transparent 35%
+        ),
 
-        background-attachment:
-            fixed;
-    }
+        linear-gradient(
+            135deg,
+            #020304 0%,
+            #080c16 50%,
+            #020304 100%
+        );
 
-
-    /* ======================================================
-       STREAMLIT BACKGROUND
-       ====================================================== */
-
-    [data-testid="stAppViewContainer"] {
-
-        background:
-            transparent !important;
-    }
+    background-attachment: fixed;
+}
 
 
-    [data-testid="stHeader"] {
+/* STREAMLIT HEADER */
 
-        background:
-            transparent !important;
-    }
-
-
-    [data-testid="stToolbar"] {
-
-        background:
-            transparent !important;
-    }
+[data-testid="stHeader"] {
+    background: transparent !important;
+}
 
 
-    .main {
+/* HIDE DEFAULT FOOTER */
 
-        background:
-            transparent !important;
-    }
+footer {
+    visibility: hidden !important;
+}
 
+#MainMenu {
+    visibility: hidden !important;
+}
+
+
+/* MAIN AREA */
+
+.main .block-container {
+
+    max-width: 1500px;
+
+    padding-top: 1.5rem;
+    padding-bottom: 3rem;
+    padding-left: 3rem;
+    padding-right: 3rem;
+}
+
+
+/* ============================================================
+   GLASS CARDS
+   ============================================================ */
+
+.glass-card,
+.prediction-card,
+.footer-card,
+[data-testid="stMetric"],
+div[data-testid="stPlotlyChart"] {
+
+    position: relative;
+
+    overflow: hidden;
+
+    background:
+
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,0.14),
+            rgba(255,255,255,0.055) 45%,
+            rgba(255,255,255,0.018)
+        );
+
+    border:
+        1px solid
+        rgba(255,255,255,0.20);
+
+    box-shadow:
+
+        0 25px 70px
+        rgba(0,0,0,0.45),
+
+        inset 0 1px 0
+        rgba(255,255,255,0.30),
+
+        inset 0 -1px 0
+        rgba(255,255,255,0.05);
+
+    backdrop-filter:
+        blur(32px)
+        saturate(160%);
+
+    -webkit-backdrop-filter:
+        blur(32px)
+        saturate(160%);
+}
+
+
+/* TOP GLASS REFLECTION */
+
+.glass-card::before,
+.prediction-card::before,
+.footer-card::before,
+[data-testid="stMetric"]::before,
+div[data-testid="stPlotlyChart"]::before {
+
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    left: 4%;
+
+    width: 92%;
+    height: 1px;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255,255,255,0.75),
+            rgba(255,255,255,0.20),
+            transparent
+        );
+
+    pointer-events: none;
+}
+
+
+/* MAC / IOS DIAGONAL SHINE */
+
+.glass-card::after,
+.prediction-card::after,
+.footer-card::after,
+[data-testid="stMetric"]::after,
+div[data-testid="stPlotlyChart"]::after {
+
+    content: "";
+
+    position: absolute;
+
+    top: -100%;
+    left: -55%;
+
+    width: 70%;
+    height: 250%;
+
+    transform: rotate(8deg);
+
+    background:
+
+        linear-gradient(
+            105deg,
+            transparent 35%,
+            rgba(255,255,255,0.12) 48%,
+            rgba(255,255,255,0.025) 53%,
+            transparent 65%
+        );
+
+    pointer-events: none;
+
+    opacity: 0.7;
+}
+
+
+/* ============================================================
+   MAIN TITLE
+   ============================================================ */
+
+.glass-card {
+
+    text-align: center;
+
+    padding: 35px 20px;
+
+    margin-bottom: 30px;
+
+    border-radius: 30px;
+}
+
+
+.main-title {
+
+    color: white;
+
+    font-size:
+        clamp(
+            2rem,
+            5vw,
+            4rem
+        );
+
+    font-weight: 800;
+
+    letter-spacing: 3px;
+
+    text-shadow:
+        0 0 30px
+        rgba(255,255,255,0.10);
+}
+
+
+.title-line {
+
+    width: 120px;
+
+    height: 2px;
+
+    margin: 16px auto 0;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            #FFD700,
+            transparent
+        );
+}
+
+
+/* ============================================================
+   SECTION TITLES
+   ============================================================ */
+
+.section-title {
+
+    color: white;
+
+    font-size: 1.35rem;
+
+    font-weight: 700;
+
+    padding: 15px 18px;
+
+    margin-top: 30px;
+    margin-bottom: 16px;
+
+    border-radius: 17px;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(255,255,255,0.08),
+            transparent
+        );
+
+    border-left:
+        3px solid
+        #FFD700;
+}
+
+
+.section-caption {
+
+    color:
+        rgba(255,255,255,0.50);
+
+    font-size:
+        0.75rem;
+
+    font-weight:
+        700;
+
+    letter-spacing:
+        2.5px;
+
+    margin:
+        20px 0 14px 4px;
+}
+
+
+/* ============================================================
+   METRICS
+   ============================================================ */
+
+[data-testid="stMetric"] {
+
+    min-height: 150px;
+
+    padding: 25px !important;
+
+    border-radius: 27px;
+
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+
+[data-testid="stMetric"]:hover {
+
+    transform:
+        translateY(-5px);
+
+    box-shadow:
+
+        0 30px 70px
+        rgba(0,0,0,0.55),
+
+        0 0 30px
+        rgba(255,215,0,0.08),
+
+        inset 0 1px 0
+        rgba(255,255,255,0.40);
+}
+
+
+[data-testid="stMetricLabel"] {
+
+    color:
+        rgba(255,255,255,0.55)
+        !important;
+
+    font-size:
+        0.75rem
+        !important;
+
+    font-weight:
+        700
+        !important;
+
+    letter-spacing:
+        1.5px
+        !important;
+}
+
+
+[data-testid="stMetricValue"] {
+
+    color:
+        white
+        !important;
+
+    font-size:
+        2.2rem
+        !important;
+
+    font-weight:
+        800
+        !important;
+}
+
+
+/* ============================================================
+   PLOTLY
+   ============================================================ */
+
+div[data-testid="stPlotlyChart"] {
+
+    border-radius: 27px;
+
+    padding: 8px;
+}
+
+
+/* ============================================================
+   SELECT BOX
+   ============================================================ */
+
+div[data-baseweb="select"] > div {
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,0.13),
+            rgba(255,255,255,0.045)
+        ) !important;
+
+    border:
+        1px solid
+        rgba(255,255,255,0.20)
+        !important;
+
+    border-radius:
+        17px
+        !important;
+
+    box-shadow:
+
+        inset 0 1px 0
+        rgba(255,255,255,0.25),
+
+        0 10px 30px
+        rgba(0,0,0,0.30);
+
+    backdrop-filter:
+        blur(25px)
+        saturate(160%);
+}
+
+
+div[data-baseweb="select"] span {
+    color: white !important;
+}
+
+
+/* ============================================================
+   BUTTON
+   ============================================================ */
+
+.stButton > button {
+
+    width: 100%;
+
+    min-height: 52px;
+
+    border-radius: 18px;
+
+    border:
+        1px solid
+        rgba(255,255,255,0.22);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,0.16),
+            rgba(255,255,255,0.045)
+        );
+
+    color: white;
+
+    font-weight: 700;
+
+    box-shadow:
+
+        0 15px 40px
+        rgba(0,0,0,0.35),
+
+        inset 0 1px 0
+        rgba(255,255,255,0.28);
+
+    backdrop-filter:
+        blur(25px)
+        saturate(160%);
+
+    transition:
+        all 0.25s ease;
+}
+
+
+.stButton > button:hover {
+
+    color: #FFD700;
+
+    border-color:
+        rgba(255,215,0,0.65);
+
+    transform:
+        translateY(-3px);
+
+    box-shadow:
+
+        0 20px 45px
+        rgba(0,0,0,0.45),
+
+        0 0 30px
+        rgba(255,215,0,0.10),
+
+        inset 0 1px 0
+        rgba(255,255,255,0.35);
+}
+
+
+/* ============================================================
+   PREDICTION CARD
+   ============================================================ */
+
+.prediction-card {
+
+    text-align: center;
+
+    padding: 34px;
+
+    margin-top: 20px;
+
+    margin-bottom: 25px;
+
+    border-radius: 28px;
+
+    background:
+
+        linear-gradient(
+            145deg,
+            rgba(255,215,0,0.15),
+            rgba(255,255,255,0.065) 45%,
+            rgba(255,255,255,0.02)
+        );
+
+    border:
+        1px solid
+        rgba(255,215,0,0.38);
+
+    box-shadow:
+
+        0 25px 70px
+        rgba(0,0,0,0.48),
+
+        0 0 45px
+        rgba(255,215,0,0.08),
+
+        inset 0 1px 0
+        rgba(255,255,255,0.30);
+}
+
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.footer-card {
+
+    text-align: center;
+
+    margin-top: 45px;
+
+    padding: 22px;
+
+    border-radius: 22px;
+}
+
+
+.footer-text {
+
+    color:
+        rgba(255,255,255,0.55);
+
+    font-size:
+        0.75rem;
+
+    letter-spacing:
+        2px;
+
+    font-weight:
+        600;
+}
+
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 768px) {
 
     .main .block-container {
 
-        max-width:
-            1500px;
-
-        padding-top:
-            1.5rem;
-
-        padding-bottom:
-            3rem;
-
-        padding-left:
-            3rem;
-
-        padding-right:
-            3rem;
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
+        padding-top: 0.8rem;
     }
 
+    .main-title {
 
-    /* ======================================================
-       MAIN TITLE
-       ====================================================== */
+        font-size: 1.55rem;
 
-    .app-title {
-
-        text-align:
-            center;
-
-        font-size:
-            clamp(2rem, 5vw, 4.2rem);
-
-        font-weight:
-            800;
-
-        letter-spacing:
-            3px;
-
-        line-height:
-            1.05;
-
-        color:
-            #ffffff;
-
-        padding:
-            30px 20px;
-
-        border-radius:
-            28px;
-
-        background:
-            linear-gradient(
-                135deg,
-                rgba(255,255,255,0.13),
-                rgba(255,255,255,0.035)
-            );
-
-        border:
-            1px solid
-            rgba(255,255,255,0.20);
-
-        box-shadow:
-            0 15px 45px
-            rgba(0,0,0,0.40),
-
-            inset 0 1px 1px
-            rgba(255,255,255,0.25),
-
-            0 0 35px
-            rgba(255,215,0,0.08);
-
-        backdrop-filter:
-            blur(25px);
-
-        -webkit-backdrop-filter:
-            blur(25px);
-
-        margin-bottom:
-            28px;
+        letter-spacing: 1.5px;
     }
 
+    .glass-card {
 
-    .title-line {
+        padding: 28px 15px;
 
-        width:
-            120px;
-
-        height:
-            3px;
-
-        margin:
-            18px auto 0;
-
-        border-radius:
-            50%;
-
-        background:
-            linear-gradient(
-                90deg,
-                transparent,
-                #FFD700,
-                transparent
-            );
-
-        box-shadow:
-            0 0 15px
-            rgba(255,215,0,0.8);
+        border-radius: 24px;
     }
-
-
-    /* ======================================================
-       SECTION TITLES
-       ====================================================== */
-
-    .section-title {
-
-        font-size:
-            1.45rem;
-
-        font-weight:
-            700;
-
-        color:
-            #ffffff;
-
-        margin-top:
-            28px;
-
-        margin-bottom:
-            14px;
-
-        padding-left:
-            14px;
-
-        border-left:
-            3px solid #FFD700;
-    }
-
-
-    .section-caption {
-
-        color:
-            rgba(255,255,255,0.45);
-
-        font-size:
-            0.75rem;
-
-        font-weight:
-            700;
-
-        letter-spacing:
-            2px;
-
-        margin-bottom:
-            14px;
-    }
-
-
-    /* ======================================================
-       STREAMLIT METRIC CARDS
-       ====================================================== */
 
     [data-testid="stMetric"] {
 
-        min-height:
-            155px;
+        min-height: 135px;
 
-        padding:
-            22px !important;
+        padding: 18px !important;
 
-        border-radius:
-            24px;
-
-        background:
-            linear-gradient(
-                145deg,
-                rgba(255,255,255,0.12),
-                rgba(255,255,255,0.035)
-            ) !important;
-
-        border:
-            1px solid
-            rgba(255,255,255,0.16);
-
-        box-shadow:
-            0 15px 40px
-            rgba(0,0,0,0.35),
-
-            inset 0 1px 1px
-            rgba(255,255,255,0.18);
-
-        backdrop-filter:
-            blur(25px);
-
-        -webkit-backdrop-filter:
-            blur(25px);
-
-        transition:
-            all 0.25s ease;
+        border-radius: 23px;
     }
-
-
-    [data-testid="stMetric"]:hover {
-
-        transform:
-            translateY(-5px);
-
-        border-color:
-            rgba(255,215,0,0.40);
-
-        box-shadow:
-            0 20px 45px
-            rgba(0,0,0,0.45),
-
-            0 0 25px
-            rgba(255,215,0,0.08);
-    }
-
-
-    [data-testid="stMetricLabel"] {
-
-        color:
-            rgba(255,255,255,0.52) !important;
-
-        font-size:
-            0.75rem !important;
-
-        font-weight:
-            700 !important;
-
-        letter-spacing:
-            1.5px !important;
-    }
-
 
     [data-testid="stMetricValue"] {
 
-        color:
-            #ffffff !important;
-
         font-size:
-            2.2rem !important;
-
-        font-weight:
-            750 !important;
+            1.75rem !important;
     }
-
-
-    [data-testid="stMetricDelta"] {
-
-        color:
-            rgba(255,215,0,0.75) !important;
-    }
-
-
-    /* ======================================================
-       PLOTLY GLASS CARDS
-       ====================================================== */
 
     div[data-testid="stPlotlyChart"] {
 
-        background:
-            linear-gradient(
-                145deg,
-                rgba(255,255,255,0.075),
-                rgba(255,255,255,0.025)
-            ) !important;
+        border-radius: 23px;
 
-        border:
-            1px solid
-            rgba(255,255,255,0.14);
-
-        border-radius:
-            24px;
-
-        padding:
-            8px;
-
-        box-shadow:
-            0 12px 38px
-            rgba(0,0,0,0.35),
-
-            inset 0 1px 1px
-            rgba(255,255,255,0.12);
-
-        backdrop-filter:
-            blur(20px);
-
-        -webkit-backdrop-filter:
-            blur(20px);
-
-        overflow:
-            hidden;
-
-        margin-bottom:
-            18px;
+        padding: 3px;
     }
+}
 
-
-    div[data-testid="stPlotlyChart"] iframe {
-
-        background:
-            transparent !important;
-    }
-
-
-    /* ======================================================
-       SELECT BOX
-       ====================================================== */
-
-    div[data-baseweb="select"] > div {
-
-        background:
-            rgba(255,255,255,0.07)
-            !important;
-
-        border:
-            1px solid
-            rgba(255,255,255,0.18)
-            !important;
-
-        border-radius:
-            16px !important;
-
-        color:
-            white !important;
-
-        backdrop-filter:
-            blur(20px);
-
-        -webkit-backdrop-filter:
-            blur(20px);
-
-        box-shadow:
-            inset 0 1px 1px
-            rgba(255,255,255,0.15),
-
-            0 5px 20px
-            rgba(0,0,0,0.25);
-    }
-
-
-    div[data-baseweb="select"] span {
-
-        color:
-            #ffffff !important;
-    }
-
-
-    div[data-baseweb="popover"] {
-
-        background:
-            rgba(10,15,28,0.95)
-            !important;
-
-        border:
-            1px solid
-            rgba(255,255,255,0.18)
-            !important;
-
-        border-radius:
-            16px !important;
-
-        backdrop-filter:
-            blur(25px);
-    }
-
-
-    /* ======================================================
-       BUTTON
-       ====================================================== */
-
-    .stButton > button {
-
-        width:
-            100%;
-
-        min-height:
-            48px;
-
-        border-radius:
-            16px;
-
-        border:
-            1px solid
-            rgba(255,255,255,0.20);
-
-        background:
-            linear-gradient(
-                135deg,
-                rgba(255,255,255,0.14),
-                rgba(255,255,255,0.045)
-            );
-
-        color:
-            #ffffff;
-
-        font-weight:
-            700;
-
-        letter-spacing:
-            0.5px;
-
-        backdrop-filter:
-            blur(20px);
-
-        -webkit-backdrop-filter:
-            blur(20px);
-
-        box-shadow:
-            0 8px 25px
-            rgba(0,0,0,0.30),
-
-            inset 0 1px 1px
-            rgba(255,255,255,0.20);
-
-        transition:
-            all 0.25s ease;
-    }
-
-
-    .stButton > button:hover {
-
-        color:
-            #FFD700;
-
-        border-color:
-            rgba(255,215,0,0.65);
-
-        transform:
-            translateY(-2px);
-
-        box-shadow:
-            0 10px 30px
-            rgba(0,0,0,0.40),
-
-            0 0 25px
-            rgba(255,215,0,0.12);
-    }
-
-
-    /* ======================================================
-       DATAFRAME
-       ====================================================== */
-
-    div[data-testid="stDataFrame"] {
-
-        border-radius:
-            20px;
-
-        overflow:
-            hidden;
-
-        border:
-            1px solid
-            rgba(255,255,255,0.15);
-
-        box-shadow:
-            0 10px 35px
-            rgba(0,0,0,0.35);
-    }
-
-
-    /* ======================================================
-       PREDICTION RESULT
-       ====================================================== */
-
-    .prediction-card {
-
-        text-align:
-            center;
-
-        padding:
-            25px;
-
-        border-radius:
-            24px;
-
-        background:
-            linear-gradient(
-                145deg,
-                rgba(255,215,0,0.13),
-                rgba(255,255,255,0.035)
-            );
-
-        border:
-            1px solid
-            rgba(255,215,0,0.35);
-
-        box-shadow:
-            0 15px 40px
-            rgba(0,0,0,0.40),
-
-            0 0 30px
-            rgba(255,215,0,0.08),
-
-            inset 0 1px 1px
-            rgba(255,255,255,0.18);
-
-        backdrop-filter:
-            blur(25px);
-
-        -webkit-backdrop-filter:
-            blur(25px);
-
-        margin:
-            18px 0;
-    }
-
-
-    /* ======================================================
-       FOOTER
-       ====================================================== */
-
-    .footer-text {
-
-        text-align:
-            center;
-
-        color:
-            rgba(255,215,0,0.75);
-
-        font-size:
-            0.8rem;
-
-        letter-spacing:
-            1.5px;
-
-        padding:
-            20px;
-
-        margin-top:
-            30px;
-    }
-
-
-    /* ======================================================
-       SCROLLBAR
-       ====================================================== */
-
-    ::-webkit-scrollbar {
-
-        width:
-            7px;
-    }
-
-
-    ::-webkit-scrollbar-track {
-
-        background:
-            #030303;
-    }
-
-
-    ::-webkit-scrollbar-thumb {
-
-        background:
-            rgba(255,215,0,0.35);
-
-        border-radius:
-            10px;
-    }
-
-
-    ::-webkit-scrollbar-thumb:hover {
-
-        background:
-            rgba(255,215,0,0.65);
-    }
-
-
-    /* ======================================================
-       MOBILE RESPONSIVE
-       ====================================================== */
-
-    @media (max-width: 768px) {
-
-        .main .block-container {
-
-            padding-left:
-                0.8rem;
-
-            padding-right:
-                0.8rem;
-
-            padding-top:
-                0.8rem;
-        }
-
-
-        .app-title {
-
-            font-size:
-                2rem;
-
-            letter-spacing:
-                1.5px;
-
-            padding:
-                28px 14px;
-
-            border-radius:
-                22px;
-        }
-
-
-        .section-title {
-
-            font-size:
-                1.2rem;
-        }
-
-
-        [data-testid="stMetric"] {
-
-            min-height:
-                135px;
-
-            padding:
-                17px !important;
-
-            border-radius:
-                20px;
-        }
-
-
-        [data-testid="stMetricValue"] {
-
-            font-size:
-                1.7rem !important;
-        }
-
-
-        div[data-testid="stPlotlyChart"] {
-
-            border-radius:
-                20px;
-
-            padding:
-                3px;
-        }
-
-    }
-
-    </style>
-    """,
+</style>
+""",
     unsafe_allow_html=True
 )
 
 
 # ============================================================
-# APP HEADER
+# HEADER
 # ============================================================
 
 st.html(
     """
-    <div class="app-title">
+    <div class="glass-card">
 
-        STRATEGIC CUSTOMER
-        <br>
-        SEGMENTATION ANALYTICS
+        <div class="main-title">
+            CUSTOMER SEGMENTATION ANALYTICS
+        </div>
 
         <div class="title-line"></div>
 
     </div>
-    """,
-
+    """
 )
 
 
@@ -1166,6 +992,10 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
+# ============================================================
+# METRICS
+# ============================================================
 
 metric1, metric2, metric3 = st.columns(
     3,
@@ -1198,7 +1028,7 @@ with metric3:
 
 
 # ============================================================
-# PORTFOLIO ANALYSIS TITLE
+# CUSTOMER PORTFOLIO
 # ============================================================
 
 st.markdown(
@@ -1212,19 +1042,15 @@ st.markdown(
 
 
 # ============================================================
-# CHART 1 — FACTOR IMPACT
+# FACTOR IMPACT
 # ============================================================
 
 factor_data = (
-
     df.groupby(
         "Satisfaction_Factor"
     )["Satisfaction_Score"]
-
     .sum()
-
     .reset_index()
-
     .sort_values(
         "Satisfaction_Score",
         ascending=False
@@ -1233,37 +1059,29 @@ factor_data = (
 
 
 fig1 = px.bar(
-
     factor_data,
-
     x="Satisfaction_Factor",
-
     y="Satisfaction_Score",
-
     color="Satisfaction_Score",
-
-    color_continuous_scale="Cividis"
+    color_continuous_scale="Cividis",
+    title="Factor Impact"
 )
 
 
 # ============================================================
-# CHART 2 — SCORE DISTRIBUTION
+# SCORE DISTRIBUTION
 # ============================================================
 
 fig2 = px.pie(
-
     factor_data,
-
     names="Satisfaction_Factor",
-
     values="Satisfaction_Score",
-
-    hole=0.55
+    hole=0.55,
+    title="Score Distribution"
 )
 
 
 fig2.update_traces(
-
     textfont=dict(
         color="white"
     )
@@ -1271,346 +1089,225 @@ fig2.update_traces(
 
 
 # ============================================================
-# CHART 3 — AGE TREND
+# AGE TREND
 # ============================================================
 
 age_data = (
-
     df.groupby(
         "Age"
     )["Satisfaction_Score"]
-
     .sum()
-
     .reset_index()
 )
 
 
 fig3 = px.line(
-
     age_data,
-
     x="Age",
-
     y="Satisfaction_Score",
-
-    markers=True
+    markers=True,
+    title="Age Trend"
 )
 
 
 # ============================================================
-# CHART 4 — SCORE FREQUENCY
+# SCORE FREQUENCY
 # ============================================================
 
 fig4 = px.histogram(
-
     df,
-
-    x="Satisfaction_Score"
+    x="Satisfaction_Score",
+    title="Score Frequency"
 )
 
 
 fig4.update_traces(
-
     marker=dict(
-        color=GOLD,
+        color="#FFD700",
         opacity=0.78
     )
 )
 
 
 # ============================================================
-# CHART 5 — STATISTICAL RANGE
+# STATISTICAL RANGE
 # ============================================================
 
 fig5 = px.box(
-
     df,
-
-    y="Satisfaction_Score"
+    y="Satisfaction_Score",
+    title="Statistical Range"
 )
 
 
 fig5.update_traces(
-
     marker=dict(
-        color=GOLD
+        color="#FFD700"
     )
 )
 
 
 # ============================================================
-# CHART 6 — DEMOGRAPHIC MAP
+# DEMOGRAPHIC ANALYSIS
 # ============================================================
 
 fig6 = px.scatter(
-
     df,
-
     x="Age",
-
     y="Satisfaction_Score",
-
     color="Loyalty_Level",
-
-    symbol="Gender"
+    symbol="Gender",
+    title="Demographic Analysis"
 )
 
 
 # ============================================================
-# TRANSPARENT PLOTLY THEME
+# GLASS CHART STYLE
 # ============================================================
 
 def make_glass_chart(fig):
 
     fig.update_layout(
 
-        paper_bgcolor=
-            "rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
 
-        plot_bgcolor=
-            "rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
 
         font=dict(
-            color=
-                "rgba(255,255,255,0.88)"
-        ),
-
-        legend=dict(
-            bgcolor=
-                "rgba(0,0,0,0)",
-
-            font=dict(
-                color=
-                    "rgba(255,255,255,0.82)"
-            )
+            color="rgba(255,255,255,0.88)"
         ),
 
         margin=dict(
             l=45,
             r=30,
-            t=55,
+            t=65,
             b=45
+        ),
+
+        legend=dict(
+            bgcolor="rgba(0,0,0,0)",
+            font=dict(
+                color="rgba(255,255,255,0.80)"
+            )
         )
     )
 
     fig.update_xaxes(
 
-        color=
-            "rgba(255,255,255,0.72)",
-
         gridcolor=
             "rgba(255,255,255,0.07)",
 
         zerolinecolor=
-            "rgba(255,255,255,0.10)"
+            "rgba(255,255,255,0.10)",
+
+        color=
+            "rgba(255,255,255,0.72)"
     )
 
     fig.update_yaxes(
 
-        color=
-            "rgba(255,255,255,0.72)",
-
         gridcolor=
             "rgba(255,255,255,0.07)",
 
         zerolinecolor=
-            "rgba(255,255,255,0.10)"
+            "rgba(255,255,255,0.10)",
+
+        color=
+            "rgba(255,255,255,0.72)"
     )
 
     return fig
 
 
-fig1 = make_glass_chart(fig1)
-
-fig2 = make_glass_chart(fig2)
-
-fig3 = make_glass_chart(fig3)
-
-fig4 = make_glass_chart(fig4)
-
-fig5 = make_glass_chart(fig5)
-
-fig6 = make_glass_chart(fig6)
-
-
 # ============================================================
-# COMBINE SIX CHARTS
+# DISPLAY CHARTS
 # ============================================================
 
-dashboard = make_subplots(
-
-    rows=3,
-
-    cols=2,
-
-    subplot_titles=[
-
-        "Factor Impact",
-
-        "Score Distribution",
-
-        "Age Trend",
-
-        "Score Frequency",
-
-        "Statistical Range",
-
-        "Demographic Map"
-
-    ],
-
-    specs=[
-
-        [
-            {"type": "xy"},
-            {"type": "domain"}
-        ],
-
-        [
-            {"type": "xy"},
-            {"type": "xy"}
-        ],
-
-        [
-            {"type": "xy"},
-            {"type": "xy"}
-        ]
-    ]
+chart1, chart2 = st.columns(
+    2,
+    gap="medium"
 )
 
+with chart1:
 
-figures = [
-
-    fig1,
-
-    fig2,
-
-    fig3,
-
-    fig4,
-
-    fig5,
-
-    fig6
-]
-
-
-for i, fig in enumerate(figures):
-
-    row = (
-        i // 2
-    ) + 1
-
-    col = (
-        i % 2
-    ) + 1
-
-    for trace in fig.data:
-
-        dashboard.add_trace(
-
-            trace,
-
-            row=row,
-
-            col=col
-        )
-
-
-# ============================================================
-# DASHBOARD TRANSPARENCY
-# ============================================================
-
-dashboard.update_layout(
-
-    height=1250,
-
-    paper_bgcolor=
-        "rgba(0,0,0,0)",
-
-    plot_bgcolor=
-        "rgba(0,0,0,0)",
-
-    title=dict(
-
-        text=
-            "Customer Portfolio",
-
-        font=dict(
-
-            color="#FFFFFF",
-
-            size=22
-        )
-    ),
-
-    font=dict(
-
-        color=
-            "rgba(255,255,255,0.88)"
-    ),
-
-    legend=dict(
-
-        bgcolor=
-            "rgba(0,0,0,0)"
-    ),
-
-    margin=dict(
-
-        l=40,
-
-        r=30,
-
-        t=80,
-
-        b=40
+    fig1 = make_glass_chart(
+        fig1
     )
+
+    st.plotly_chart(
+        fig1,
+        use_container_width=True
+    )
+
+
+with chart2:
+
+    fig2 = make_glass_chart(
+        fig2
+    )
+
+    st.plotly_chart(
+        fig2,
+        use_container_width=True
+    )
+
+
+chart3, chart4 = st.columns(
+    2,
+    gap="medium"
 )
 
+with chart3:
 
-dashboard.update_xaxes(
+    fig3 = make_glass_chart(
+        fig3
+    )
 
-    showgrid=True,
+    st.plotly_chart(
+        fig3,
+        use_container_width=True
+    )
 
-    gridcolor=
-        "rgba(255,255,255,0.07)",
 
-    zerolinecolor=
-        "rgba(255,255,255,0.10)",
+with chart4:
 
-    color=
-        "rgba(255,255,255,0.72)"
+    fig4 = make_glass_chart(
+        fig4
+    )
+
+    st.plotly_chart(
+        fig4,
+        use_container_width=True
+    )
+
+
+chart5, chart6 = st.columns(
+    2,
+    gap="medium"
 )
 
+with chart5:
 
-dashboard.update_yaxes(
+    fig5 = make_glass_chart(
+        fig5
+    )
 
-    showgrid=True,
-
-    gridcolor=
-        "rgba(255,255,255,0.07)",
-
-    zerolinecolor=
-        "rgba(255,255,255,0.10)",
-
-    color=
-        "rgba(255,255,255,0.72)"
-)
+    st.plotly_chart(
+        fig5,
+        use_container_width=True
+    )
 
 
-st.plotly_chart(
+with chart6:
 
-    dashboard,
+    fig6 = make_glass_chart(
+        fig6
+    )
 
-    use_container_width=True,
-
-    config={
-        "displayModeBar": True,
-        "responsive": True
-    }
-)
+    st.plotly_chart(
+        fig6,
+        use_container_width=True
+    )
 
 
 # ============================================================
@@ -1627,53 +1324,41 @@ st.markdown(
 )
 
 
-seg_counts = (
-
+segment_counts = (
     df["Group"]
-
     .value_counts()
-
     .reset_index()
 )
 
 
-seg_counts.columns = [
-
+segment_counts.columns = [
     "Group",
-
     "Count"
 ]
 
 
-fig_seg = px.bar(
-
-    seg_counts,
-
+fig_segments = px.bar(
+    segment_counts,
     x="Group",
-
     y="Count",
-
     color="Group",
-
     title="Customers per Segment"
 )
 
 
-fig_seg = make_glass_chart(
-    fig_seg
+fig_segments = make_glass_chart(
+    fig_segments
 )
 
 
 st.plotly_chart(
-
-    fig_seg,
-
+    fig_segments,
     use_container_width=True
 )
 
 
 # ============================================================
-# FEATURE IMPORTANCE
+# PREDICTION INTELLIGENCE
 # ============================================================
 
 st.markdown(
@@ -1686,70 +1371,51 @@ st.markdown(
 )
 
 
-importances = (
+feature_importance = pd.DataFrame({
 
-    pd.Series(
+    "Feature":
+        X.columns,
 
-        model.feature_importances_,
+    "Importance":
+        model.feature_importances_
+})
 
-        index=X.columns
 
-    )
-
+feature_importance = (
+    feature_importance
     .sort_values(
+        "Importance",
         ascending=False
     )
-
     .head(10)
-
-    .reset_index()
 )
 
 
-importances.columns = [
-
-    "Feature",
-
-    "Importance"
-]
-
-
-fig_imp = px.bar(
-
-    importances,
-
+fig_importance = px.bar(
+    feature_importance,
     x="Importance",
-
     y="Feature",
-
     orientation="h",
-
     color="Importance",
-
     color_continuous_scale="Cividis",
-
-    title=
-        "Top Features Driving Segment Prediction"
+    title="Top Features Driving Segment Prediction"
 )
 
 
-fig_imp.update_layout(
-
+fig_importance.update_layout(
     yaxis=dict(
         autorange="reversed"
     )
 )
 
 
-fig_imp = make_glass_chart(
-    fig_imp
+fig_importance = make_glass_chart(
+    fig_importance
 )
 
 
 st.plotly_chart(
-
-    fig_imp,
-
+    fig_importance,
     use_container_width=True
 )
 
@@ -1759,65 +1425,37 @@ st.plotly_chart(
 # ============================================================
 
 fig_cm = px.imshow(
-
     cm,
-
     x=list(
         label_encoder.classes_
     ),
-
     y=list(
         label_encoder.classes_
     ),
-
     text_auto=True,
-
-    color_continuous_scale=
-        "Cividis",
-
+    color_continuous_scale="Cividis",
     labels={
-
-        "x":
-            "Predicted",
-
-        "y":
-            "Actual",
-
-        "color":
-            "Count"
+        "x": "Predicted",
+        "y": "Actual",
+        "color": "Count"
     },
-
-    title=
-        "Prediction Accuracy Matrix"
+    title="Prediction Accuracy Matrix"
 )
 
 
-fig_cm.update_layout(
-
-    paper_bgcolor=
-        "rgba(0,0,0,0)",
-
-    plot_bgcolor=
-        "rgba(0,0,0,0)",
-
-    font=dict(
-
-        color=
-            "rgba(255,255,255,0.88)"
-    )
+fig_cm = make_glass_chart(
+    fig_cm
 )
 
 
 st.plotly_chart(
-
     fig_cm,
-
     use_container_width=True
 )
 
 
 # ============================================================
-# CLASSIFICATION REPORT
+# MODEL PERFORMANCE
 # ============================================================
 
 st.markdown(
@@ -1831,55 +1469,28 @@ st.markdown(
 
 
 st.dataframe(
-
     report_df,
-
     use_container_width=True,
-
     hide_index=True
 )
 
 
 # ============================================================
-# LIVE PREDICTION
+# LIVE CUSTOMER PREDICTION
 # ============================================================
-st.html(
-    f"""
-    <div class="prediction-card">
-        <div style="
-            color: rgba(255,255,255,0.50);
-            font-size: 0.75rem;
-            letter-spacing: 2px;
-            font-weight: 700;
-            margin-bottom: 10px;
-        ">
-            PREDICTED CUSTOMER SEGMENT
-        </div>
 
-        <div style="
-            color: #FFD700;
-            font-size: 2rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-        ">
-            {predicted_label}
-        </div>
-
-        <div style="
-            color: rgba(255,255,255,0.70);
-            font-size: 1rem;
-        ">
-            Confidence: {confidence:.1%}
-        </div>
-    </div>
+st.markdown(
     """
+    <div class="section-title">
+        Live Customer Prediction
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 
 selected_customer_id = st.selectbox(
-
     "Select Customer",
-
     sorted(
         df["Customer_ID"].unique()
     )
@@ -1887,19 +1498,19 @@ selected_customer_id = st.selectbox(
 
 
 if st.button(
-
     "⚡  Predict Customer Segment",
-
     type="primary"
 ):
 
-    input_df_original = (
+    # --------------------------------------------------------
+    # GET SELECTED CUSTOMER
+    # --------------------------------------------------------
 
+    input_df_original = (
         df[
             df["Customer_ID"]
             == selected_customer_id
         ]
-
         .drop(
             columns=[
                 "Customer_ID",
@@ -1909,16 +1520,24 @@ if st.button(
     )
 
 
+    # --------------------------------------------------------
+    # ENCODE CUSTOMER
+    # --------------------------------------------------------
+
     input_encoded = pd.get_dummies(
-
         input_df_original,
-
-        columns=
-            categorical_cols,
-
+        columns=[
+            col
+            for col in categorical_columns
+            if col in input_df_original.columns
+        ],
         drop_first=True
     )
 
+
+    # --------------------------------------------------------
+    # MATCH TRAINING COLUMNS
+    # --------------------------------------------------------
 
     input_encoded = (
         input_encoded
@@ -1929,13 +1548,16 @@ if st.button(
     )
 
 
+    # --------------------------------------------------------
+    # PREDICTION
+    # --------------------------------------------------------
+
     prediction = model.predict(
         input_encoded
     )
 
 
     predicted_label = (
-
         label_encoder
         .inverse_transform(
             prediction
@@ -1943,8 +1565,11 @@ if st.button(
     )
 
 
-    probabilities = (
+    # --------------------------------------------------------
+    # PROBABILITIES
+    # --------------------------------------------------------
 
+    probabilities = (
         model
         .predict_proba(
             input_encoded
@@ -1955,47 +1580,50 @@ if st.button(
     confidence = probabilities.max()
 
 
-   # --------------------------------------------------------
-# PREDICTION CARD
-# --------------------------------------------------------
+    # --------------------------------------------------------
+    # PREDICTION CARD
+    # --------------------------------------------------------
 
-st.html(
-    f"""
-    <div class="prediction-card">
+    st.html(
+        f"""
+        <div class="prediction-card">
 
-        <div style="
-            color: rgba(255,255,255,0.50);
-            font-size: 0.75rem;
-            letter-spacing: 2px;
-            font-weight: 700;
-            margin-bottom: 10px;
-        ">
-            PREDICTED CUSTOMER SEGMENT
+            <div style="
+                color: rgba(255,255,255,0.52);
+                font-size: 0.75rem;
+                letter-spacing: 2px;
+                font-weight: 700;
+                margin-bottom: 12px;
+            ">
+                PREDICTED CUSTOMER SEGMENT
+            </div>
+
+            <div style="
+                color: #FFD700;
+                font-size: 2.4rem;
+                font-weight: 800;
+                margin-bottom: 10px;
+                text-shadow:
+                    0 0 25px
+                    rgba(255,215,0,0.25);
+            ">
+                {predicted_label}
+            </div>
+
+            <div style="
+                color: rgba(255,255,255,0.72);
+                font-size: 1rem;
+            ">
+                Confidence: {confidence:.1%}
+            </div>
+
         </div>
-
-        <div style="
-            color: #FFD700;
-            font-size: 2rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-        ">
-            {predicted_label}
-        </div>
-
-        <div style="
-            color: rgba(255,255,255,0.70);
-            font-size: 1rem;
-        ">
-            Confidence: {confidence:.1%}
-        </div>
-
-    </div>
-    """
-)
+        """
+    )
 
 
     # --------------------------------------------------------
-    # PROBABILITY CHART
+    # PROBABILITY DATAFRAME
     # --------------------------------------------------------
 
     prob_df = pd.DataFrame({
@@ -2008,13 +1636,18 @@ st.html(
     })
 
 
-    prob_df = prob_df.sort_values(
-
-        "Probability",
-
-        ascending=False
+    prob_df = (
+        prob_df
+        .sort_values(
+            "Probability",
+            ascending=False
+        )
     )
 
+
+    # --------------------------------------------------------
+    # CONFIDENCE CHART
+    # --------------------------------------------------------
 
     fig_prob = px.bar(
 
@@ -2036,10 +1669,13 @@ st.html(
     )
 
 
+    fig_prob.update_yaxes(
+        tickformat=".0%"
+    )
+
+
     st.plotly_chart(
-
         fig_prob,
-
         use_container_width=True
     )
 
@@ -2050,13 +1686,14 @@ st.html(
 
 st.html(
     """
-    <div class="footer-text">
+    <div class="footer-card">
 
-        STRATEGIC CUSTOMER INSIGHTS
-        &nbsp; • &nbsp;
-        ANALYTICS DASHBOARD
+        <div class="footer-text">
+            CUSTOMER INSIGHTS
+            &nbsp; • &nbsp;
+            ANALYTICS DASHBOARD
+        </div>
 
     </div>
-    """,
-   
+    """
 )
