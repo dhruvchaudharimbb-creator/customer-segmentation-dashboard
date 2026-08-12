@@ -1482,7 +1482,7 @@ st.dataframe(
 st.markdown(
     """
     <div class="section-title">
-        Live Customer Prediction
+        Customer Prediction
     </div>
     """,
     unsafe_allow_html=True
