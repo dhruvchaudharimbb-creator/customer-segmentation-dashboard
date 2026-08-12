@@ -1955,46 +1955,43 @@ if st.button(
     confidence = probabilities.max()
 
 
-    # --------------------------------------------------------
-    # PREDICTION CARD
-    # --------------------------------------------------------
+   # --------------------------------------------------------
+# PREDICTION CARD
+# --------------------------------------------------------
 
-    prediction_html = f"""
-<div class="prediction-card">
+st.html(
+    f"""
+    <div class="prediction-card">
 
-    <div style="
-                color: rgba(255,255,255,0.50);
-                font-size: 0.75rem;
-                letter-spacing: 2px;
-                font-weight: 700;
-                margin-bottom: 10px;
-            ">
-                PREDICTED CUSTOMER SEGMENT
-            </div>
+        <div style="
+            color: rgba(255,255,255,0.50);
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        ">
+            PREDICTED CUSTOMER SEGMENT
+        </div>
 
-            <div style="
-                color: #FFD700;
-                font-size: 2rem;
-                font-weight: 800;
-                margin-bottom: 8px;
-            ">
-                {predicted_label}
-            </div>
+        <div style="
+            color: #FFD700;
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        ">
+            {predicted_label}
+        </div>
 
-            <div style="
-                color: rgba(255,255,255,0.70);
-                font-size: 1rem;
-            ">
-                Confidence: {confidence:.1%}
+        <div style="
+            color: rgba(255,255,255,0.70);
+            font-size: 1rem;
+        ">
+            Confidence: {confidence:.1%}
+        </div>
+
     </div>
-
-</div>
-"""
-
-    st.markdown(
-        prediction_html,
-        unsafe_allow_html=True
-    )
+    """
+)
 
 
     # --------------------------------------------------------
